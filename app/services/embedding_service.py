@@ -1,9 +1,8 @@
 """
 Embedding generation service using sentence-transformers.
+Falls back gracefully when torch is not available (e.g., Vercel).
 """
-from typing import List, Union
-import torch
-from sentence_transformers import SentenceTransformer
+from typing import List, Union, Optional
 
 from app.core.config import settings
 from app.utils.logger import app_logger
@@ -11,71 +10,78 @@ from app.utils.logger import app_logger
 
 class EmbeddingService:
     """Generate embeddings for text using sentence-transformers."""
-    
+
     _instance = None
     _model = None
-    
+
     def __new__(cls):
-        """Singleton pattern to avoid loading model multiple times."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
-    
+
     def __init__(self):
-        """Initialize embedding model."""
         if self._model is None:
             self.logger = app_logger
             self.model_name = settings.embedding_model
             self.batch_size = settings.embedding_batch_size
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
-            
-            self.logger.info(f"Loading embedding model: {self.model_name}")
-            self.logger.info(f"Using device: {self.device}")
-            
+
             try:
+                import torch
+                from sentence_transformers import SentenceTransformer
+
+                self.device = "cuda" if torch.cuda.is_available() else "cpu"
+                self.logger.info(f"Loading embedding model: {self.model_name}")
+                self.logger.info(f"Using device: {self.device}")
+
                 self._model = SentenceTransformer(self.model_name)
                 self._model.to(self.device)
+                self._use_local = True
                 self.logger.info("Embedding model loaded successfully")
-            except Exception as e:
-                self.logger.error(f"Failed to load embedding model: {e}")
-                raise
+
+            except ImportError:
+                self.logger.warning(
+                    "sentence-transformers/torch not available. "
+                    "Using Ollama embeddings as fallback."
+                )
+                self._model = "ollama_fallback"
+                self._use_local = False
+                self.device = "cpu"
     
     def embed_text(self, text: Union[str, List[str]]) -> Union[List[float], List[List[float]]]:
-        """
-        Generate embeddings for text.
-        
-        Args:
-            text: Single text string or list of texts
-            
-        Returns:
-            Single embedding vector or list of embedding vectors
-        """
+        """Generate embeddings for text."""
         if isinstance(text, str):
             text = [text]
             single_input = True
         else:
             single_input = False
-        
-        try:
-            # Generate embeddings in batches
-            embeddings = self._model.encode(
-                text,
-                batch_size=self.batch_size,
-                show_progress_bar=False,
-                convert_to_numpy=True,
-                normalize_embeddings=True  # Normalize for cosine similarity
-            )
-            
-            # Convert to list
-            embeddings = embeddings.tolist()
-            
-            if single_input:
-                return embeddings[0]
-            return embeddings
-            
-        except Exception as e:
-            self.logger.error(f"Error generating embeddings: {e}")
-            raise
+
+        if self._use_local:
+            try:
+                embeddings = self._model.encode(
+                    text,
+                    batch_size=self.batch_size,
+                    show_progress_bar=False,
+                    convert_to_numpy=True,
+                    normalize_embeddings=True
+                )
+                embeddings = embeddings.tolist()
+            except Exception as e:
+                self.logger.error(f"Error generating embeddings: {e}")
+                raise
+        else:
+            # Ollama fallback
+            import httpx
+            embeddings = []
+            with httpx.Client(timeout=30.0) as client:
+                for t in text:
+                    resp = client.post(
+                        f"{settings.ollama_base_url}/api/embeddings",
+                        json={"model": "nomic-embed-text", "prompt": t}
+                    )
+                    resp.raise_for_status()
+                    embeddings.append(resp.json()["embedding"])
+
+        return embeddings[0] if single_input else embeddings
     
     def embed_query(self, query: str) -> List[float]:
         """
@@ -104,28 +110,16 @@ class EmbeddingService:
     @property
     def embedding_dimension(self) -> int:
         """Get the dimension of embeddings."""
-        return self._model.get_sentence_embedding_dimension()
-    
+        if self._use_local:
+            return self._model.get_sentence_embedding_dimension()
+        return settings.embedding_dimension
+
     def similarity(self, embedding1: List[float], embedding2: List[float]) -> float:
-        """
-        Calculate cosine similarity between two embeddings.
-        
-        Args:
-            embedding1: First embedding vector
-            embedding2: Second embedding vector
-            
-        Returns:
-            Similarity score between -1 and 1
-        """
+        """Calculate cosine similarity between two embeddings."""
         import numpy as np
-        
         vec1 = np.array(embedding1)
         vec2 = np.array(embedding2)
-        
-        # Cosine similarity
-        similarity = np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
-        
-        return float(similarity)
+        return float(np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2)))
 
 
 # Global instance

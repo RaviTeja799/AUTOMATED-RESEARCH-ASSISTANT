@@ -122,5 +122,5 @@ class EmbeddingService:
         return float(np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2)))
 
 
-# Global instance
+# Global instance (lazy singleton via class __new__)
 embedding_service = EmbeddingService()

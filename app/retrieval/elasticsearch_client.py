@@ -362,5 +362,23 @@ class ElasticsearchClient:
         self._sync_client.close()
 
 
-# Global instance
-es_client = ElasticsearchClient()
+# Global instance (lazy - created on first access)
+_es_client_instance = None
+
+
+def get_es_client() -> "ElasticsearchClient":
+    """Get or create the global Elasticsearch client instance."""
+    global _es_client_instance
+    if _es_client_instance is None:
+        _es_client_instance = ElasticsearchClient()
+    return _es_client_instance
+
+
+# Keep backward-compatible name as a module-level property
+class _LazyESClient:
+    """Lazy proxy for the global Elasticsearch client."""
+    def __getattr__(self, name):
+        return getattr(get_es_client(), name)
+
+
+es_client = get_es_client()

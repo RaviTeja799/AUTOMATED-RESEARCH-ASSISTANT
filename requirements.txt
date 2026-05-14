@@ -20,6 +20,8 @@ ollama>=0.4.0
 # LangChain (core only, no heavy extras)
 langchain-core>=0.3.85
 langchain>=0.3.30
+langchain-community>=0.3.30
+langchain-classic>=1.0.0
 
 # PDF Processing
 PyMuPDF>=1.25.0

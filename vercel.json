@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "app/main.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "app/main.py"
+    }
+  ],
+  "env": {
+    "ELASTICSEARCH_URL": "@elasticsearch_url",
+    "OLLAMA_BASE_URL": "@ollama_base_url",
+    "OLLAMA_MODEL": "@ollama_model",
+    "EMBEDDING_MODEL": "sentence-transformers/all-MiniLM-L6-v2",
+    "EMBEDDING_DIMENSION": "384",
+    "CHUNK_SIZE": "512",
+    "CHUNK_OVERLAP": "50",
+    "MIN_CHUNK_LENGTH": "100",
+    "DEFAULT_TOP_K": "5",
+    "LOG_LEVEL": "INFO",
+    "DEBUG": "False"
+  }
+}

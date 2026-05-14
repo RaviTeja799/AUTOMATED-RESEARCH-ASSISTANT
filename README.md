@@ -73,42 +73,55 @@ docker run -d \
   elasticsearch:8.12.0
 ```
 
-## Installation
+## Quick Start (Docker — recommended)
 
-1. **Clone the repository**
+The entire stack runs with one command. You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed.
 
 ```bash
-git clone <repository-url>
-cd research-assistant
+git clone https://github.com/vamsi-op/AUTOMATED-RESEARCH-ASSISTANT.git
+cd AUTOMATED-RESEARCH-ASSISTANT
+docker-compose up
 ```
 
-2. **Create virtual environment**
+This starts:
+- **Elasticsearch** on port 9200
+- **Ollama** on port 11434 (pulls `llama3` automatically on first run)
+- **FastAPI** on port 8000
+
+Then open:
+- **API**: http://localhost:8000
+- **Interactive Docs**: http://localhost:8000/docs
+
+> First run takes 5–10 minutes to pull the `llama3` model (~4GB). Subsequent starts are instant.
+
+---
+
+## Manual Setup (without Docker)
 
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+# 1. Clone
+git clone https://github.com/vamsi-op/AUTOMATED-RESEARCH-ASSISTANT.git
+cd AUTOMATED-RESEARCH-ASSISTANT
 
-3. **Install dependencies**
+# 2. Install dependencies
+pip install -r requirements-full.txt
 
-```bash
-pip install -r requirements.txt
-```
+# 3. Start Elasticsearch
+docker run -d --name elasticsearch -p 9200:9200 \
+  -e "discovery.type=single-node" \
+  -e "xpack.security.enabled=false" \
+  elasticsearch:8.12.0
 
-4. **Configure environment**
+# 4. Start Ollama and pull a model
+ollama serve
+ollama pull llama3
 
-```bash
+# 5. Configure environment
 cp .env.example .env
-# Edit .env with your configuration
-```
 
-5. **Run the application**
-
-```bash
+# 6. Run
 python main.py
 ```
-
-The API will be available at `http://localhost:8000`
 
 ## API Endpoints
 

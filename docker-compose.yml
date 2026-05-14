@@ -1,0 +1,110 @@
+version: "3.9"
+
+services:
+  # ─────────────────────────────────────────
+  # Elasticsearch
+  # ─────────────────────────────────────────
+  elasticsearch:
+    image: elasticsearch:8.12.0
+    container_name: research-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks:
+      - research-net
+
+  # ─────────────────────────────────────────
+  # Ollama (local LLM)
+  # ─────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: research-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:11434/api/tags || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks:
+      - research-net
+
+  # ─────────────────────────────────────────
+  # Model Puller (runs once, then exits)
+  # ─────────────────────────────────────────
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: research-ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+        ollama pull llama3 &&
+        echo 'Model pulled successfully'
+      "
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    networks:
+      - research-net
+    restart: "no"
+
+  # ─────────────────────────────────────────
+  # FastAPI Backend
+  # ─────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: research-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - EMBEDDING_DIMENSION=384
+      - CHUNK_SIZE=512
+      - CHUNK_OVERLAP=50
+      - LOG_LEVEL=INFO
+      - DEBUG=False
+      - UPLOAD_DIR=/app/data/uploads
+      - PROCESSED_DIR=/app/data/processed
+      - LOG_DIR=/app/logs
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:8000/api/v1/health/live | grep -q 'alive'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - research-net
+    restart: unless-stopped
+
+volumes:
+  elasticsearch_data:
+  ollama_data:
+
+networks:
+  research-net:
+    driver: bridge

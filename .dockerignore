@@ -1,0 +1,51 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Environment files (never bake secrets into image)
+.env
+.env.*
+
+# Data and logs (mounted as volumes)
+data/uploads/*
+data/processed/*
+logs/*
+
+# IDE
+.vscode/
+.idea/
+
+# Tests
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Vercel
+.vercel/
+api/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs (not needed in container)
+*.md
+!README.md
+
+# Models cache (downloaded at runtime)
+.cache/
+models/

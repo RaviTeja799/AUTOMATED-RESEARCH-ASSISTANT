@@ -1,0 +1,35 @@
+# Lightweight requirements for Vercel deployment
+# Heavy ML packages (torch, sentence-transformers) are excluded
+# Use EMBEDDING_PROVIDER=openai or a remote embedding API instead
+
+# Web Framework
+fastapi>=0.115.0
+uvicorn>=0.34.0
+python-multipart>=0.0.20
+
+# Pydantic
+pydantic>=2.11.0
+pydantic-settings>=2.9.0
+
+# Elasticsearch
+elasticsearch>=8.19.0
+
+# LLM (Ollama client only - no local model)
+ollama>=0.4.0
+
+# LangChain (core only, no heavy extras)
+langchain-core>=0.3.85
+langchain>=0.3.30
+
+# PDF Processing
+PyMuPDF>=1.25.0
+pypdf>=5.4.0
+
+# Utilities
+python-dotenv>=1.1.0
+aiofiles>=24.1.0
+httpx>=0.28.0
+loguru>=0.7.0
+tenacity>=9.1.0
+python-jose[cryptography]>=3.5.0
+passlib[bcrypt]>=1.7.4

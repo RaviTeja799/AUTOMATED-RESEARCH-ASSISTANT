@@ -123,4 +123,44 @@ class EmbeddingService:
 
 
 # Global instance (lazy singleton via class __new__)
-embedding_service = EmbeddingService()
+# Only instantiated when first accessed, not at import time
+_embedding_service_instance = None
+
+
+def get_embedding_service_instance():
+    """Get or create the global embedding service instance."""
+    global _embedding_service_instance
+    if _embedding_service_instance is None:
+        _embedding_service_instance = EmbeddingService()
+    return _embedding_service_instance
+
+
+# Module-level name for backward compatibility
+# This is a lazy reference - actual instantiation happens on first use
+class _LazyEmbeddingService:
+    """Lazy proxy that defers EmbeddingService instantiation."""
+    _real = None
+
+    def _get(self):
+        if self._real is None:
+            self._real = EmbeddingService()
+        return self._real
+
+    def __getattr__(self, name):
+        return getattr(self._get(), name)
+
+    def embed_text(self, *args, **kwargs):
+        return self._get().embed_text(*args, **kwargs)
+
+    def embed_query(self, *args, **kwargs):
+        return self._get().embed_query(*args, **kwargs)
+
+    def embed_documents(self, *args, **kwargs):
+        return self._get().embed_documents(*args, **kwargs)
+
+    @property
+    def embedding_dimension(self):
+        return self._get().embedding_dimension
+
+
+embedding_service = _LazyEmbeddingService()

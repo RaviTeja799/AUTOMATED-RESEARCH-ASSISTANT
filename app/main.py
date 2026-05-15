@@ -176,8 +176,7 @@ async def http_exception_handler(
     Handle HTTP exceptions.
     """
     app_logger.warning(
-        f"HTTP error: {exc.status_code} - {exc.detail}",
-        extra={"status_code": exc.status_code}
+        f"HTTP error: {exc.status_code} - {exc.detail}"
     )
     
     return JSONResponse(

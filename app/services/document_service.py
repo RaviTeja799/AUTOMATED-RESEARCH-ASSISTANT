@@ -13,7 +13,6 @@ from app.models.schemas import (
     PaperMetadata,
     DocumentChunk,
 )
-from app.retrieval.elasticsearch_client import ElasticsearchClient
 from app.services.embedding_service import EmbeddingService
 from app.processing.pdf_extractor import PDFExtractor
 from app.processing.preprocessor import TextPreprocessor
@@ -27,7 +26,7 @@ class DocumentService:
     
     def __init__(
         self,
-        es_client: ElasticsearchClient,
+        es_client,   # QdrantVectorStore or any compatible store
         embedding_service: EmbeddingService,
     ):
         """

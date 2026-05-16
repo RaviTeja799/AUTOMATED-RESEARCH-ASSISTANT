@@ -6,7 +6,6 @@ import re
 from typing import List, Dict, Any, Optional
 
 from app.models.schemas import QueryRequest, QueryResponse, Citation
-from app.retrieval.vector_store_compat import ElasticsearchClient
 from app.retrieval.hybrid_retriever import HybridRetriever
 from app.services.embedding_service import EmbeddingService
 from app.services.llm_service import LLMService
@@ -21,30 +20,17 @@ class QueryService:
     
     def __init__(
         self,
-        es_client: ElasticsearchClient,
+        es_client,
         embedding_service: EmbeddingService,
         llm_service: LLMService,
     ):
-        """
-        Initialize query service.
-        
-        Args:
-            es_client: Elasticsearch client
-            embedding_service: Embedding service
-            llm_service: LLM service
-        """
-        self.es_client = es_client
         self.embedding_service = embedding_service
         self.llm_service = llm_service
-        
-        # Initialize hybrid retriever
         self.retriever = HybridRetriever(
-            es_client=es_client,
             embedding_service=embedding_service,
-            semantic_weight=settings.hybrid_search_weight
+            semantic_weight=settings.hybrid_search_weight,
         )
-        
-        app_logger.info("QueryService initialized with hybrid retrieval")
+        app_logger.info("QueryService initialized")
     
     async def query(self, request: QueryRequest) -> QueryResponse:
         """

@@ -9,7 +9,6 @@ from app.services.query_service import QueryService
 from app.services.summarization_service import SummarizationService
 from app.services.literature_service import LiteratureService
 from app.retrieval.hybrid_retriever import HybridRetriever
-from app.retrieval.vector_store_compat import ElasticsearchClient
 from app.services.embedding_service import EmbeddingService
 from app.utils.logger import app_logger
 
@@ -19,33 +18,17 @@ class AgentService:
     
     def __init__(
         self,
-        es_client: ElasticsearchClient,
+        es_client,
         embedding_service: EmbeddingService,
         query_service: QueryService,
         summarization_service: SummarizationService,
         literature_service: LiteratureService,
     ):
-        """
-        Initialize agent service.
-        
-        Args:
-            es_client: Elasticsearch client
-            embedding_service: Embedding service
-            query_service: Query service
-            summarization_service: Summarization service
-            literature_service: Literature service
-        """
-        self.es_client = es_client
         self.embedding_service = embedding_service
         self.query_service = query_service
         self.summarization_service = summarization_service
         self.literature_service = literature_service
-        
-        # Initialize retriever
-        self.retriever = HybridRetriever(
-            es_client=es_client,
-            embedding_service=embedding_service
-        )
+        self.retriever = HybridRetriever(embedding_service=embedding_service)
         
         # Initialize agent
         self.research_agent = ResearchAgent(

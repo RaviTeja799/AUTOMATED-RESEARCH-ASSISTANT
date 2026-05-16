@@ -1,5 +1,5 @@
-"""Retrieval and search functionality."""
-from app.retrieval.vector_store_compat import ElasticsearchClient, es_client
+"""Vector retrieval using Qdrant Cloud."""
 from app.retrieval.qdrant_client import QdrantVectorStore, qdrant_store
+from app.retrieval.hybrid_retriever import HybridRetriever
 
-__all__ = ["QdrantVectorStore", "qdrant_store", "ElasticsearchClient", "es_client"]
+__all__ = ["QdrantVectorStore", "qdrant_store", "HybridRetriever"]

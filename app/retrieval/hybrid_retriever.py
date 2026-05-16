@@ -1,8 +1,9 @@
 """
-Hybrid retriever using Qdrant for semantic search.
+Hybrid retriever — async embedding + Qdrant semantic search.
 """
-from typing import List, Dict, Any, Optional
+import asyncio
 import time
+from typing import List, Dict, Any, Optional
 
 from app.retrieval.qdrant_client import QdrantVectorStore
 from app.services.embedding_service import EmbeddingService
@@ -12,11 +13,11 @@ from app.utils.logger import app_logger
 
 
 class HybridRetriever:
-    """Retriever using Qdrant semantic search."""
+    """Retriever using Qdrant semantic search with async embedding."""
 
     def __init__(
         self,
-        es_client=None,           # kept for API compat, unused
+        es_client=None,           # unused, kept for API compat
         embedding_service: EmbeddingService = None,
         semantic_weight: float = 0.5,
         qdrant_store: QdrantVectorStore = None,
@@ -25,7 +26,7 @@ class HybridRetriever:
         self.qdrant = qdrant_store or get_qdrant_client()
         self.embedding_service = embedding_service
         self.semantic_weight = semantic_weight
-        app_logger.info("HybridRetriever initialized with Qdrant")
+        app_logger.info("HybridRetriever initialized")
 
     async def retrieve(
         self,
@@ -41,10 +42,9 @@ class HybridRetriever:
             if self.qdrant.client is None:
                 await self.qdrant.initialize()
 
-            # Generate embedding
-            embedding = self.embedding_service.embed_query(query)
+            # Async embedding — does NOT block the event loop
+            embedding = await self.embedding_service.embed_query_async(query)
 
-            # Search Qdrant
             results = await self.qdrant.search(
                 query_embedding=embedding,
                 top_k=top_k,
@@ -52,9 +52,7 @@ class HybridRetriever:
                 score_threshold=min_score or settings.min_similarity_score,
             )
 
-            app_logger.info(
-                f"Retrieved {len(results)} chunks in {time.time()-start:.3f}s"
-            )
+            app_logger.info(f"Retrieved {len(results)} chunks in {time.time()-start:.3f}s")
             return results
 
         except Exception as e:

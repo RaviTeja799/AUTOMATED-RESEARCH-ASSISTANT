@@ -26,21 +26,19 @@ from app.utils.logger import app_logger, set_request_id
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Lifespan context manager for startup and shutdown events.
-    """
-    # Startup
+    """Startup: warm up all services. Shutdown: clean up connections."""
     app_logger.info(f"Starting {settings.app_name} v{settings.app_version}")
-    app_logger.info(f"Environment: {'Development' if settings.debug else 'Production'}")
-    app_logger.info(f"Elasticsearch URL: {settings.elasticsearch_url}")
-    app_logger.info(f"Ollama URL: {settings.ollama_base_url}")
-    
+    app_logger.info(f"Qdrant: {settings.qdrant_url}")
+    app_logger.info(f"Groq model: {settings.groq_model}")
+
+    from app.api.deps import warm_up
+    await warm_up()
+
     yield
-    
-    # Shutdown
-    app_logger.info("Shutting down application...")
+
+    app_logger.info("Shutting down...")
     await cleanup_services()
-    app_logger.info("Application shutdown complete")
+    app_logger.info("Shutdown complete")
 
 
 # ============================================================================
@@ -50,29 +48,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    description="""
-    **Automated Research Assistant API**
-    
-    A production-grade research assistant system that processes academic PDFs, 
-    performs intelligent retrieval, and provides AI-powered research capabilities 
-    using RAG (Retrieval-Augmented Generation).
-    
-    ## Features
-    
-    * **Document Processing**: Upload and process academic PDFs
-    * **Hybrid Search**: Semantic + keyword search using Elasticsearch
-    * **RAG-based Q&A**: Answer research questions with source citations
-    * **Paper Summarization**: Generate concise summaries of academic papers
-    * **Literature Reviews**: Automated literature review generation
-    
-    ## Tech Stack
-    
-    * FastAPI for backend APIs
-    * Ollama for local LLM inference
-    * Elasticsearch for hybrid retrieval
-    * LangChain for agent orchestration
-    * sentence-transformers for embeddings
-    """,
+    description=(
+        "**Automated Research Assistant** — RAG-powered academic paper analysis.\n\n"
+        "Upload PDFs, ask questions with citations, summarize papers, generate literature reviews.\n\n"
+        "**Stack:** FastAPI · Groq (LLM) · Qdrant Cloud (vectors) · sentence-transformers"
+    ),
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
@@ -108,35 +88,13 @@ async def add_request_id_and_logging(request: Request, call_next: Callable) -> R
     request_id = request.headers.get("X-Request-ID", str(uuid.uuid4())[:8])
     set_request_id(request_id)
     
-    # Log request
     start_time = time.time()
-    app_logger.info(
-        f"Request started: {request.method} {request.url.path}",
-        extra={"request_id": request_id, "method": request.method, "path": request.url.path}
-    )
-    
-    # Process request
+    app_logger.info(f"→ {request.method} {request.url.path}")
     response = await call_next(request)
-    
-    # Calculate processing time
-    process_time = time.time() - start_time
-    
-    # Add headers
+    elapsed = time.time() - start_time
     response.headers["X-Request-ID"] = request_id
-    response.headers["X-Process-Time"] = str(process_time)
-    
-    # Log response
-    app_logger.info(
-        f"Request completed: {request.method} {request.url.path} - Status: {response.status_code} - Time: {process_time:.3f}s",
-        extra={
-            "request_id": request_id,
-            "method": request.method,
-            "path": request.url.path,
-            "status_code": response.status_code,
-            "process_time": process_time,
-        }
-    )
-    
+    response.headers["X-Process-Time"] = f"{elapsed:.3f}"
+    app_logger.info(f"← {request.method} {request.url.path} {response.status_code} {elapsed:.3f}s")
     return response
 
 
@@ -145,93 +103,29 @@ async def add_request_id_and_logging(request: Request, call_next: Callable) -> R
 # ============================================================================
 
 @app.exception_handler(ResearchAssistantException)
-async def research_assistant_exception_handler(
-    request: Request,
-    exc: ResearchAssistantException
-) -> JSONResponse:
-    """
-    Handle custom application exceptions.
-    """
-    app_logger.error(
-        f"Application error: {exc.message}",
-        extra={"detail": exc.detail, "status_code": exc.status_code}
-    )
-    
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": exc.message,
-            "detail": exc.detail,
-            "status_code": exc.status_code,
-        }
-    )
+async def research_assistant_exception_handler(request: Request, exc: ResearchAssistantException) -> JSONResponse:
+    app_logger.error(f"App error {exc.status_code}: {exc.message} — {exc.detail}")
+    return JSONResponse(status_code=exc.status_code, content={"error": exc.message, "detail": exc.detail})
 
 
 @app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(
-    request: Request,
-    exc: StarletteHTTPException
-) -> JSONResponse:
-    """
-    Handle HTTP exceptions.
-    """
-    app_logger.warning(
-        f"HTTP error: {exc.status_code} - {exc.detail}"
-    )
-    
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": "HTTP error",
-            "detail": exc.detail,
-            "status_code": exc.status_code,
-        }
-    )
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    app_logger.warning(f"HTTP {exc.status_code}: {exc.detail}")
+    return JSONResponse(status_code=exc.status_code, content={"error": "HTTP error", "detail": exc.detail})
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(
-    request: Request,
-    exc: RequestValidationError
-) -> JSONResponse:
-    """
-    Handle request validation errors.
-    """
-    app_logger.warning(
-        f"Validation error: {exc.errors()}",
-        extra={"errors": exc.errors()}
-    )
-    
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "error": "Validation error",
-            "detail": exc.errors(),
-            "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY,
-        }
-    )
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    app_logger.warning(f"Validation error: {exc.errors()}")
+    return JSONResponse(status_code=422, content={"error": "Validation error", "detail": exc.errors()})
 
 
 @app.exception_handler(Exception)
-async def general_exception_handler(
-    request: Request,
-    exc: Exception
-) -> JSONResponse:
-    """
-    Handle unexpected exceptions.
-    """
-    app_logger.error(
-        f"Unexpected error: {str(exc)}",
-        exc_info=True
-    )
-    
+async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    app_logger.error(f"Unhandled error: {exc}", exc_info=True)
     return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "error": "Internal server error",
-            "detail": str(exc) if settings.debug else "An unexpected error occurred",
-            "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-        }
+        status_code=500,
+        content={"error": "Internal server error", "detail": str(exc) if settings.debug else "Unexpected error"},
     )
 
 

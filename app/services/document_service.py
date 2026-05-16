@@ -1,11 +1,5 @@
 """
-Document processing service — optimized pipeline.
-
-Improvements vs original:
-- Embedding generation is async (non-blocking)
-- PDF extraction runs in thread executor (non-blocking)
-- list_papers() uses asyncio.gather() — parallel chunk fetches, no N+1
-- Stale comments referencing Elasticsearch removed
+Document processing service — PDF ingestion pipeline.
 """
 import asyncio
 import time
@@ -27,8 +21,8 @@ from app.utils.logger import app_logger
 class DocumentService:
     """PDF ingestion pipeline — extract → chunk → embed → index."""
 
-    def __init__(self, es_client, embedding_service: EmbeddingService):
-        self.store = es_client          # QdrantVectorStore
+    def __init__(self, store, embedding_service: EmbeddingService):
+        self.store = store
         self.embedding_service = embedding_service
         self.pdf_extractor = PDFExtractor()
         self.preprocessor = TextPreprocessor()

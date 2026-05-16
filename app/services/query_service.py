@@ -1,11 +1,10 @@
 """
-Query service — RAG pipeline with async embedding and result caching.
+Query service — RAG pipeline with citation-awareness and result caching.
 
-Improvements:
-- embed_query_async() — non-blocking embedding
+Features:
 - TTL cache on (question, top_k, filters) — repeated queries skip Qdrant + Groq
 - Single-pass confidence assessment
-- Fixed: ollama_max_tokens → groq_max_tokens
+- Hallucination prevention via citation enforcement
 """
 import asyncio
 import hashlib
@@ -47,7 +46,7 @@ def _cache_set(key: str, value: QueryResponse):
 class QueryService:
     """RAG-based query processing with citation-awareness."""
 
-    def __init__(self, es_client, embedding_service: EmbeddingService, llm_service: LLMService):
+    def __init__(self, store, embedding_service: EmbeddingService, llm_service: LLMService):
         self.embedding_service = embedding_service
         self.llm_service = llm_service
         self.retriever = HybridRetriever(

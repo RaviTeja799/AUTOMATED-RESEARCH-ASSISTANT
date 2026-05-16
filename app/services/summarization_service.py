@@ -69,8 +69,8 @@ SECTION_PRIORITY = ["abstract", "introduction", "results", "conclusion",
 class SummarizationService:
     """Paper summarization using Groq LLM with caching."""
 
-    def __init__(self, es_client, llm_service: LLMService):
-        self.store = es_client
+    def __init__(self, store, llm_service: LLMService):
+        self.store = store
         self.llm_service = llm_service
         app_logger.info("SummarizationService initialized")
 

@@ -64,7 +64,7 @@ async def get_agent_service(
 ) -> AgentService:
     """Get agent service instance."""
     return AgentService(
-        es_client=qdrant,
+        store=qdrant,
         embedding_service=embedding_service,
         query_service=query_service,
         summarization_service=summarization_service,

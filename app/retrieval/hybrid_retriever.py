@@ -17,10 +17,10 @@ class HybridRetriever:
 
     def __init__(
         self,
-        es_client=None,           # unused, kept for API compat
         embedding_service: EmbeddingService = None,
         semantic_weight: float = 0.5,
         qdrant_store: QdrantVectorStore = None,
+        **_kwargs,  # absorb any legacy keyword args
     ):
         from app.retrieval.qdrant_client import get_qdrant_client
         self.qdrant = qdrant_store or get_qdrant_client()

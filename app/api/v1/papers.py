@@ -38,7 +38,7 @@ async def upload_paper(
     2. Extract text and metadata
     3. Chunk document intelligently
     4. Generate embeddings
-    5. Index in Elasticsearch
+    5. Index in Qdrant Cloud
     
     **Args:**
     - **file**: PDF file (max 50MB by default)

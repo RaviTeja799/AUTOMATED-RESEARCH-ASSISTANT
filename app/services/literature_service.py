@@ -35,9 +35,9 @@ Return only valid JSON."""
 class LiteratureService:
     """Service for literature review generation."""
 
-    def __init__(self, es_client, embedding_service: EmbeddingService,
+    def __init__(self, store, embedding_service: EmbeddingService,
                  llm_service: LLMService):
-        self.store = es_client
+        self.store = store
         self.embedding_service = embedding_service
         self.llm_service = llm_service
         app_logger.info("LiteratureService initialized")

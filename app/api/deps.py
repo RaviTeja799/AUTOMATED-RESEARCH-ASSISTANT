@@ -1,11 +1,7 @@
 """
 Dependency injection — all heavy services are singletons.
-
-Improvements:
-- asyncio.Lock() on Qdrant init prevents TOCTOU double-init
-- QueryService, SummarizationService, LiteratureService are singletons
-- get_elasticsearch_client alias removed (was dead code)
-- warm_up() called at startup to eliminate cold-start penalty
+Qdrant init uses asyncio.Lock() to prevent double-init on concurrent startup.
+warm_up() is called at startup to eliminate cold-start penalty.
 """
 import asyncio
 from typing import Optional
@@ -93,7 +89,7 @@ async def get_document_service(
 ) -> DocumentService:
     global _document_service
     if _document_service is None:
-        _document_service = DocumentService(es_client=qdrant, embedding_service=emb)
+        _document_service = DocumentService(store=qdrant, embedding_service=emb)
     return _document_service
 
 
@@ -104,7 +100,7 @@ async def get_query_service(
 ) -> QueryService:
     global _query_service
     if _query_service is None:
-        _query_service = QueryService(es_client=qdrant, embedding_service=emb, llm_service=llm)
+        _query_service = QueryService(store=qdrant, embedding_service=emb, llm_service=llm)
     return _query_service
 
 
@@ -114,7 +110,7 @@ async def get_summarization_service(
 ) -> SummarizationService:
     global _summarization_service
     if _summarization_service is None:
-        _summarization_service = SummarizationService(es_client=qdrant, llm_service=llm)
+        _summarization_service = SummarizationService(store=qdrant, llm_service=llm)
     return _summarization_service
 
 
@@ -126,7 +122,7 @@ async def get_literature_service(
     global _literature_service
     if _literature_service is None:
         _literature_service = LiteratureService(
-            es_client=qdrant, embedding_service=emb, llm_service=llm
+            store=qdrant, embedding_service=emb, llm_service=llm
         )
     return _literature_service
 

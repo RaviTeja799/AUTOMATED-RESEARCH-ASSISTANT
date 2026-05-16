@@ -18,7 +18,7 @@ class AgentService:
     
     def __init__(
         self,
-        es_client,
+        store,
         embedding_service: EmbeddingService,
         query_service: QueryService,
         summarization_service: SummarizationService,

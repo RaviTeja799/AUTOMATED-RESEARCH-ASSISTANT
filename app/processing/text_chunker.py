@@ -159,19 +159,16 @@ class TextChunker:
         """
         # Clean text
         text = re.sub(r"\s+", " ", text).strip()
-        
-        # Split on sentence boundaries
-        # Handle common abbreviations
-        text = re.sub(r"(?<=[A-Z])\.(?=[A-Z])", ".<ABBREV>", text)  # U.S.A.
-        text = re.sub(r"(?<=Dr|Mr|Mrs|Ms)\.(?=\s)", ".<ABBREV>", text)
-        text = re.sub(r"(?<=et al)\.(?=\s)", ".<ABBREV>", text)
-        text = re.sub(r"(?<=Fig|Tab|Eq)\.(?=\s)", ".<ABBREV>", text)
-        
+
+        # Protect common abbreviations before splitting
+        text = re.sub(r"\b(Dr|Mr|Mrs|Ms|Prof|Fig|Tab|Eq|et al)\.", r"\1<DOT>", text)
+        text = re.sub(r"(?<=[A-Z])\.(?=[A-Z])", "<DOT>", text)  # U.S.A.
+
         # Split on sentence endings
         sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z])", text)
-        
-        # Restore abbreviations
-        sentences = [s.replace("<ABBREV>", "") for s in sentences]
+
+        # Restore protected dots
+        sentences = [s.replace("<DOT>", ".") for s in sentences]
         
         # Filter out very short sentences
         sentences = [s.strip() for s in sentences if len(s.strip()) > 10]

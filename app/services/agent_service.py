@@ -9,7 +9,7 @@ from app.services.query_service import QueryService
 from app.services.summarization_service import SummarizationService
 from app.services.literature_service import LiteratureService
 from app.retrieval.hybrid_retriever import HybridRetriever
-from app.retrieval.elasticsearch_client import ElasticsearchClient
+from app.retrieval.vector_store_compat import ElasticsearchClient
 from app.services.embedding_service import EmbeddingService
 from app.utils.logger import app_logger
 

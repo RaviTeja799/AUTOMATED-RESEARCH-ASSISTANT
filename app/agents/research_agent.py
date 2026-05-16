@@ -1,13 +1,12 @@
 """
-Research assistant agent with LangChain.
-Compatible with LangChain 1.x / langchain-classic.
+Research assistant agent with LangChain + Groq.
 """
 from typing import List, Dict, Any, Optional
 import asyncio
 
 from langchain_classic.agents import AgentExecutor, create_react_agent
 from langchain_classic.memory import ConversationBufferMemory
-from langchain_community.llms import Ollama
+from langchain_groq import ChatGroq
 from langchain_core.prompts import PromptTemplate
 
 from app.agents.tools import (
@@ -22,26 +21,19 @@ from app.utils.logger import app_logger
 
 
 class ResearchAgent:
-    """
-    Research assistant agent with tool orchestration and memory.
-    """
+    """Research assistant agent with tool orchestration and memory."""
 
-    def __init__(
-        self,
-        query_service,
-        summarization_service,
-        literature_service,
-        retriever,
-    ):
+    def __init__(self, query_service, summarization_service,
+                 literature_service, retriever):
         self.query_service = query_service
         self.summarization_service = summarization_service
         self.literature_service = literature_service
         self.retriever = retriever
 
-        # Initialize LLM
-        self.llm = Ollama(
-            base_url=settings.ollama_base_url,
-            model=settings.ollama_model,
+        # Groq LLM for agent reasoning
+        self.llm = ChatGroq(
+            api_key=settings.groq_api_key,
+            model=settings.groq_model,
             temperature=0.7,
         )
 

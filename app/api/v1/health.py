@@ -44,8 +44,8 @@ async def health_check(
     return HealthResponse(
         status=overall,
         version=settings.app_version,
-        elasticsearch_connected=qdrant_ok,   # reusing field for Qdrant
-        ollama_available=groq_ok,            # reusing field for Groq
+        qdrant_connected=qdrant_ok,
+        groq_available=groq_ok,
         timestamp=datetime.utcnow(),
     )
 

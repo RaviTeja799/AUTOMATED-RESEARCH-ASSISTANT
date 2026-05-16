@@ -7,14 +7,14 @@ from pydantic import BaseModel, Field
 
 from app.services.agent_service import AgentService
 from app.api.deps import (
-    get_elasticsearch_client,
+    get_qdrant,
     get_embedding_service,
     get_query_service,
     get_summarization_service,
     get_literature_service,
     get_request_id
 )
-from app.retrieval.elasticsearch_client import ElasticsearchClient
+from app.retrieval.qdrant_client import QdrantVectorStore
 from app.services.embedding_service import EmbeddingService
 from app.services.query_service import QueryService
 from app.services.summarization_service import SummarizationService
@@ -56,7 +56,7 @@ class ClearMemoryRequest(BaseModel):
 
 # Dependency to get agent service
 async def get_agent_service(
-    es_client: ElasticsearchClient = Depends(get_elasticsearch_client),
+    qdrant: QdrantVectorStore = Depends(get_qdrant),
     embedding_service: EmbeddingService = Depends(get_embedding_service),
     query_service: QueryService = Depends(get_query_service),
     summarization_service: SummarizationService = Depends(get_summarization_service),
@@ -64,7 +64,7 @@ async def get_agent_service(
 ) -> AgentService:
     """Get agent service instance."""
     return AgentService(
-        es_client=es_client,
+        es_client=qdrant,
         embedding_service=embedding_service,
         query_service=query_service,
         summarization_service=summarization_service,

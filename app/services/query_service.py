@@ -6,7 +6,7 @@ import re
 from typing import List, Dict, Any, Optional
 
 from app.models.schemas import QueryRequest, QueryResponse, Citation
-from app.retrieval.elasticsearch_client import ElasticsearchClient
+from app.retrieval.vector_store_compat import ElasticsearchClient
 from app.retrieval.hybrid_retriever import HybridRetriever
 from app.services.embedding_service import EmbeddingService
 from app.services.llm_service import LLMService

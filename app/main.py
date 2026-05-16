@@ -85,11 +85,11 @@ app = FastAPI(
 # Middleware
 # ============================================================================
 
-# CORS Middleware
+# CORS Middleware - allow all origins for the frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -243,22 +243,29 @@ app.include_router(api_router)
 
 
 # ============================================================================
-# Root Endpoint
+# Static Frontend
 # ============================================================================
 
-@app.get("/", tags=["Root"])
-async def root() -> dict:
-    """
-    Root endpoint with API information.
-    """
-    return {
-        "name": settings.app_name,
-        "version": settings.app_version,
-        "status": "running",
-        "docs": "/docs",
-        "redoc": "/redoc",
-        "openapi": "/openapi.json",
-    }
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+frontend_dir = Path(__file__).parent.parent / "frontend"
+if frontend_dir.exists() and (frontend_dir / "index.html").exists():
+    app.mount("/ui", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+
+    @app.get("/", include_in_schema=False)
+    async def serve_frontend():
+        return FileResponse(str(frontend_dir / "index.html"))
+else:
+    @app.get("/", tags=["Root"])
+    async def root() -> dict:
+        return {
+            "name": settings.app_name,
+            "version": settings.app_version,
+            "status": "running",
+            "docs": "/docs",
+        }
 
 
 # ============================================================================

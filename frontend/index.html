@@ -1,0 +1,343 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Assistant</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+  .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); border: 1px solid rgba(148, 163, 184, 0.1); }
+  .btn-primary { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+  .btn-primary:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: #1e293b; }
+  ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+  .typing::after { content: '▎'; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .citation { display: inline-block; padding: 2px 8px; background: #1e3a8a; color: #93c5fd; border-radius: 4px; font-size: 11px; margin: 0 2px; }
+</style>
+</head>
+<body class="min-h-screen">
+<div class="container mx-auto px-4 py-6 max-w-7xl">
+
+  <header class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Research Assistant</h1>
+      <p class="text-sm text-slate-400 mt-1">RAG-powered Q&A on academic papers · Groq + Qdrant Cloud</p>
+    </div>
+    <div id="status-pill" class="glass px-4 py-2 rounded-full text-sm">
+      <span class="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-2"></span>
+      <span id="status-text">Connecting...</span>
+    </div>
+  </header>
+
+  <nav class="glass rounded-xl p-1 mb-6 inline-flex">
+    <button onclick="switchTab('chat')" id="tab-chat" class="tab-btn px-5 py-2 rounded-lg transition bg-indigo-600 text-white">💬 Chat</button>
+    <button onclick="switchTab('upload')" id="tab-upload" class="tab-btn px-5 py-2 rounded-lg transition text-slate-400 hover:text-white">📄 Upload</button>
+    <button onclick="switchTab('papers')" id="tab-papers" class="tab-btn px-5 py-2 rounded-lg transition text-slate-400 hover:text-white">📚 Papers</button>
+    <button onclick="switchTab('summarize')" id="tab-summarize" class="tab-btn px-5 py-2 rounded-lg transition text-slate-400 hover:text-white">📝 Summarize</button>
+    <button onclick="switchTab('review')" id="tab-review" class="tab-btn px-5 py-2 rounded-lg transition text-slate-400 hover:text-white">📊 Lit Review</button>
+  </nav>
+
+  <!-- CHAT TAB -->
+  <div id="panel-chat" class="panel">
+    <div class="glass rounded-xl p-6">
+      <div id="chat-messages" class="space-y-4 mb-4 min-h-[400px] max-h-[60vh] overflow-y-auto pr-2">
+        <div class="text-center text-slate-500 py-12">
+          <div class="text-5xl mb-4">🔍</div>
+          <p>Ask anything about the papers you've uploaded</p>
+          <p class="text-xs mt-2 text-slate-600">Try: "What is the attention mechanism?" or "What are the BLEU scores?"</p>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <input id="chat-input" type="text" placeholder="Ask a research question..."
+          class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500"
+          onkeydown="if(event.key==='Enter')sendQuery()">
+        <button onclick="sendQuery()" id="send-btn" class="btn-primary px-6 py-3 rounded-lg font-medium">Ask →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- UPLOAD TAB -->
+  <div id="panel-upload" class="panel hidden">
+    <div class="glass rounded-xl p-8">
+      <div id="dropzone" class="border-2 border-dashed border-slate-600 rounded-xl p-12 text-center hover:border-indigo-500 transition cursor-pointer">
+        <div class="text-6xl mb-4">📄</div>
+        <p class="text-lg mb-2">Drop a PDF here or click to browse</p>
+        <p class="text-sm text-slate-500">Academic papers · Max 50MB</p>
+        <input type="file" id="file-input" accept=".pdf" class="hidden">
+      </div>
+      <div id="upload-status" class="mt-6 hidden"></div>
+    </div>
+  </div>
+
+  <!-- PAPERS TAB -->
+  <div id="panel-papers" class="panel hidden">
+    <div class="glass rounded-xl p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold">Indexed Papers</h2>
+        <button onclick="loadPapers()" class="text-sm text-indigo-400 hover:text-indigo-300">↻ Refresh</button>
+      </div>
+      <div id="papers-list" class="space-y-3"></div>
+    </div>
+  </div>
+
+  <!-- SUMMARIZE TAB -->
+  <div id="panel-summarize" class="panel hidden">
+    <div class="glass rounded-xl p-6">
+      <h2 class="text-xl font-semibold mb-4">Summarize a Paper</h2>
+      <div class="grid gap-3 mb-4">
+        <select id="sum-paper" class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3"></select>
+        <select id="sum-type" class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3">
+          <option value="brief">Brief (200-300 words)</option>
+          <option value="comprehensive">Comprehensive (500-800 words)</option>
+          <option value="technical">Technical deep-dive</option>
+        </select>
+        <button onclick="generateSummary()" class="btn-primary px-6 py-3 rounded-lg font-medium">Generate Summary</button>
+      </div>
+      <div id="summary-result"></div>
+    </div>
+  </div>
+
+  <!-- REVIEW TAB -->
+  <div id="panel-review" class="panel hidden">
+    <div class="glass rounded-xl p-6">
+      <h2 class="text-xl font-semibold mb-4">Generate Literature Review</h2>
+      <div class="grid gap-3 mb-4">
+        <input id="rev-topic" type="text" placeholder="Topic e.g. transformer architectures"
+          class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3">
+        <button onclick="generateReview()" class="btn-primary px-6 py-3 rounded-lg font-medium">Generate Review</button>
+      </div>
+      <div id="review-result"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000/api/v1';
+
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    const h = await r.json();
+    const ok = h.status === 'healthy';
+    document.getElementById('status-pill').innerHTML =
+      `<span class="inline-block w-2 h-2 rounded-full ${ok?'bg-green-400':'bg-red-400'} mr-2"></span>` +
+      `<span class="text-${ok?'green':'red'}-400">${ok?'Healthy':'Degraded'}</span>` +
+      ` · Qdrant ${h.qdrant_connected?'✓':'✗'} · Groq ${h.groq_available?'✓':'✗'}`;
+  } catch(e) {
+    document.getElementById('status-pill').innerHTML =
+      `<span class="inline-block w-2 h-2 rounded-full bg-red-400 mr-2"></span>` +
+      `<span class="text-red-400">Server offline</span>`;
+  }
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.remove('bg-indigo-600','text-white');
+    b.classList.add('text-slate-400');
+  });
+  document.getElementById(`panel-${name}`).classList.remove('hidden');
+  const btn = document.getElementById(`tab-${name}`);
+  btn.classList.add('bg-indigo-600','text-white');
+  btn.classList.remove('text-slate-400');
+  if (name === 'papers' || name === 'summarize') loadPapers();
+}
+
+function addMessage(role, content, meta) {
+  const messages = document.getElementById('chat-messages');
+  if (messages.querySelector('.text-center')) messages.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = role === 'user' ? 'flex justify-end' : 'flex justify-start';
+  const bubble = role === 'user'
+    ? `<div class="bg-indigo-600 px-4 py-3 rounded-2xl rounded-br-sm max-w-[80%]">${escapeHtml(content)}</div>`
+    : `<div class="glass px-4 py-3 rounded-2xl rounded-bl-sm max-w-[85%]">
+         <div class="prose prose-invert prose-sm max-w-none">${formatAnswer(content)}</div>
+         ${meta ? `<div class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-700">
+           ⚡ ${meta.processing_time?.toFixed(1)}s · 📚 ${meta.retrieved_chunks} chunks · 🎯 ${(meta.confidence*100).toFixed(0)}% confidence
+           ${meta.citations?.length ? `<div class="mt-2">${meta.citations.map(c => `<span class="citation">${escapeHtml(c.paper_title?.slice(0,50)||'paper')}</span>`).join('')}</div>` : ''}
+         </div>` : ''}
+       </div>`;
+  div.innerHTML = bubble;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  return div;
+}
+
+function escapeHtml(t) { return (t||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+function formatAnswer(t) {
+  return escapeHtml(t)
+    .replace(/\[([^\]]+)\]/g, '<span class="citation">$1</span>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/^/, '<p>').replace(/$/, '</p>');
+}
+
+async function sendQuery() {
+  const input = document.getElementById('chat-input');
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+  addMessage('user', q);
+  const loadingMsg = addMessage('assistant', 'Thinking...');
+  loadingMsg.querySelector('.prose').classList.add('typing');
+  try {
+    const r = await fetch(`${API}/query`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({question: q, top_k: 5})
+    });
+    const data = await r.json();
+    loadingMsg.remove();
+    addMessage('assistant', data.answer || data.detail?.detail || 'No response', data);
+  } catch(e) {
+    loadingMsg.remove();
+    addMessage('assistant', `Error: ${e.message}`);
+  }
+}
+
+async function loadPapers() {
+  try {
+    const r = await fetch(`${API}/papers`);
+    const papers = await r.json();
+    const list = document.getElementById('papers-list');
+    const select = document.getElementById('sum-paper');
+    if (!papers.length) {
+      list.innerHTML = '<div class="text-center py-8 text-slate-500">No papers indexed yet. Upload one to get started.</div>';
+      select.innerHTML = '<option>Upload a paper first</option>';
+      return;
+    }
+    list.innerHTML = papers.map(p => `
+      <div class="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+        <div class="flex justify-between items-start">
+          <div class="flex-1">
+            <div class="font-medium">${escapeHtml(p.metadata?.title || 'Untitled')}</div>
+            <div class="text-xs text-slate-500 mt-1">ID: ${p.paper_id}</div>
+            <div class="text-sm text-slate-400 mt-2">
+              📑 ${p.num_chunks} chunks · 📂 ${(p.sections||[]).join(', ') || 'no sections'}
+            </div>
+          </div>
+          <button onclick="deletePaper('${p.paper_id}')" class="text-red-400 hover:text-red-300 text-sm">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+    select.innerHTML = papers.map(p =>
+      `<option value="${p.paper_id}">${escapeHtml(p.metadata?.title?.slice(0,80) || p.paper_id)}</option>`
+    ).join('');
+  } catch(e) {
+    document.getElementById('papers-list').innerHTML = `<div class="text-red-400">Error: ${e.message}</div>`;
+  }
+}
+
+async function deletePaper(id) {
+  if (!confirm('Delete this paper from Qdrant?')) return;
+  await fetch(`${API}/papers/${id}`, {method: 'DELETE'});
+  loadPapers();
+}
+
+async function generateSummary() {
+  const paper_id = document.getElementById('sum-paper').value;
+  const summary_type = document.getElementById('sum-type').value;
+  const result = document.getElementById('summary-result');
+  result.innerHTML = '<div class="text-slate-400">⏳ Generating summary...</div>';
+  try {
+    const r = await fetch(`${API}/summarize`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({paper_id, summary_type})
+    });
+    const s = await r.json();
+    result.innerHTML = `
+      <div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+        <h3 class="text-lg font-semibold mb-2">${escapeHtml(s.paper_title || 'Summary')}</h3>
+        <p class="text-slate-300 mb-4 leading-relaxed">${escapeHtml(s.summary || '')}</p>
+        ${s.key_findings?.length ? `
+          <div class="mb-3">
+            <h4 class="font-medium text-indigo-400 mb-2">Key Findings</h4>
+            <ul class="list-disc list-inside text-slate-300 space-y-1">
+              ${s.key_findings.map(f => `<li>${escapeHtml(f)}</li>`).join('')}
+            </ul>
+          </div>` : ''}
+        ${s.methodology ? `<div class="mb-3"><h4 class="font-medium text-indigo-400 mb-1">Methodology</h4><p class="text-slate-300">${escapeHtml(s.methodology)}</p></div>` : ''}
+        ${s.limitations ? `<div><h4 class="font-medium text-indigo-400 mb-1">Limitations</h4><p class="text-slate-300">${escapeHtml(s.limitations)}</p></div>` : ''}
+      </div>
+    `;
+  } catch(e) {
+    result.innerHTML = `<div class="text-red-400">Error: ${e.message}</div>`;
+  }
+}
+
+async function generateReview() {
+  const topic = document.getElementById('rev-topic').value.trim();
+  if (!topic) return alert('Enter a topic');
+  const result = document.getElementById('review-result');
+  result.innerHTML = '<div class="text-slate-400">⏳ Generating literature review...</div>';
+  try {
+    const r = await fetch(`${API}/literature-review`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({topic, max_papers: 10})
+    });
+    const lr = await r.json();
+    result.innerHTML = `
+      <div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700 space-y-4">
+        <div><h3 class="text-lg font-semibold mb-2">${escapeHtml(lr.topic)}</h3>
+          <p class="text-slate-300 leading-relaxed">${escapeHtml(lr.overview || '')}</p></div>
+        ${lr.key_themes?.length ? `<div><h4 class="font-medium text-indigo-400 mb-2">Key Themes</h4>
+          <ul class="list-disc list-inside text-slate-300">${lr.key_themes.map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul></div>` : ''}
+        ${lr.research_gaps?.length ? `<div><h4 class="font-medium text-indigo-400 mb-2">Research Gaps</h4>
+          <ul class="list-disc list-inside text-slate-300">${lr.research_gaps.map(g=>`<li>${escapeHtml(g)}</li>`).join('')}</ul></div>` : ''}
+        ${lr.future_directions?.length ? `<div><h4 class="font-medium text-indigo-400 mb-2">Future Directions</h4>
+          <ul class="list-disc list-inside text-slate-300">${lr.future_directions.map(d=>`<li>${escapeHtml(d)}</li>`).join('')}</ul></div>` : ''}
+        <div class="text-xs text-slate-500 pt-3 border-t border-slate-700">${lr.num_papers} papers analyzed</div>
+      </div>
+    `;
+  } catch(e) {
+    result.innerHTML = `<div class="text-red-400">Error: ${e.message}</div>`;
+  }
+}
+
+// Upload handling
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+const uploadStatus = document.getElementById('upload-status');
+dropzone.onclick = () => fileInput.click();
+dropzone.ondragover = e => { e.preventDefault(); dropzone.classList.add('border-indigo-500'); };
+dropzone.ondragleave = () => dropzone.classList.remove('border-indigo-500');
+dropzone.ondrop = e => { e.preventDefault(); dropzone.classList.remove('border-indigo-500'); if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]); };
+fileInput.onchange = e => { if (e.target.files[0]) uploadFile(e.target.files[0]); };
+
+async function uploadFile(file) {
+  uploadStatus.classList.remove('hidden');
+  uploadStatus.innerHTML = `<div class="glass p-4 rounded-lg">⏳ Uploading <strong>${escapeHtml(file.name)}</strong> (${(file.size/1024/1024).toFixed(1)}MB)...<br><span class="text-sm text-slate-400">Extracting → Chunking → Embedding → Indexing in Qdrant Cloud</span></div>`;
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await fetch(`${API}/papers/upload`, {method: 'POST', body: fd});
+    const data = await r.json();
+    if (data.status === 'success') {
+      uploadStatus.innerHTML = `
+        <div class="bg-green-900/30 border border-green-700 p-4 rounded-lg">
+          <div class="text-green-400 font-medium mb-2">✓ Successfully indexed</div>
+          <div class="text-sm text-slate-300 space-y-1">
+            <div><strong>Title:</strong> ${escapeHtml(data.metadata?.title || 'N/A')}</div>
+            <div><strong>Pages:</strong> ${data.metadata?.num_pages || '?'}</div>
+            <div><strong>Chunks created:</strong> ${data.num_chunks}</div>
+            <div><strong>Time:</strong> ${data.processing_time.toFixed(1)}s</div>
+          </div>
+        </div>`;
+    } else {
+      uploadStatus.innerHTML = `<div class="bg-red-900/30 border border-red-700 p-4 rounded-lg text-red-300">✗ ${escapeHtml(data.message || 'Upload failed')}</div>`;
+    }
+  } catch(e) {
+    uploadStatus.innerHTML = `<div class="bg-red-900/30 border border-red-700 p-4 rounded-lg text-red-300">Error: ${e.message}</div>`;
+  }
+}
+
+checkHealth();
+setInterval(checkHealth, 30000);
+loadPapers();
+</script>
+</body>
+</html>

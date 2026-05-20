@@ -1,49 +1,35 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Stage 1: Builder — install Python dependencies
-# ─────────────────────────────────────────────────────────────────────────────
-FROM python:3.11-slim AS builder
+FROM python:3.11-slim
 
 WORKDIR /app
 
+# System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl \
+    build-essential curl libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-# Install torch CPU-only first (largest package, benefits from layer caching)
+# Install CPU-only torch first (largest dep, benefits from layer caching)
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
-        torch>=2.6.0 && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir \
+        --extra-index-url https://download.pytorch.org/whl/cpu \
+        "torch>=2.6.0"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Stage 2: Runtime
-# ─────────────────────────────────────────────────────────────────────────────
-FROM python:3.11-slim AS runtime
+# Install remaining dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-WORKDIR /app
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-
+# Copy application
 COPY app/ ./app/
 COPY main.py .
 COPY frontend/ ./frontend/
-COPY scripts/demo.py ./scripts/
+COPY scripts/ ./scripts/
 
+# Create writable directories
 RUN mkdir -p data/uploads data/processed logs
-
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
     CMD curl -f http://localhost:8000/api/v1/health/live || exit 1
 
-# Railway injects $PORT — fall back to 8000 locally
+# Railway injects $PORT
 CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1

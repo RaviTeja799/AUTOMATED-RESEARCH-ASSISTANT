@@ -15,10 +15,8 @@ langchain-groq>=0.3.0
 qdrant-client>=1.9.0
 
 # ── Embeddings (local, sentence-transformers) ─────────────────────────────────
+# torch is installed separately in Dockerfile with CPU-only wheels
 sentence-transformers>=3.4.0
-# CPU-only torch — much smaller than full torch (~200MB vs 2GB)
---extra-index-url https://download.pytorch.org/whl/cpu
-torch>=2.6.0
 transformers>=4.51.0
 
 # ── LangChain Agent ───────────────────────────────────────────────────────────

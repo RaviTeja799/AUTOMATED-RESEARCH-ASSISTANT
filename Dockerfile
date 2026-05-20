@@ -10,7 +10,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+# Install torch CPU-only first (largest package, benefits from layer caching)
 RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
+        torch>=2.6.0 && \
     pip install --no-cache-dir -r requirements.txt
 
 # ─────────────────────────────────────────────────────────────────────────────

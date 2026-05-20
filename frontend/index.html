@@ -115,7 +115,8 @@
 </div>
 
 <script>
-const API = 'http://localhost:8000/api/v1';
+// Use relative URL so it works on any host (Railway, local, etc.)
+const API = window.location.origin + '/api/v1';
 
 async function checkHealth() {
   try {

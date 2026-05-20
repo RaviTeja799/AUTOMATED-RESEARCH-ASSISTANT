@@ -26,13 +26,15 @@ from app.utils.logger import app_logger, set_request_id
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: warm up all services. Shutdown: clean up connections."""
+    """Startup: warm up services in background. Shutdown: clean up."""
     app_logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     app_logger.info(f"Qdrant: {settings.qdrant_url}")
     app_logger.info(f"Groq model: {settings.groq_model}")
 
+    # Run warm_up in background so health check passes immediately
+    import asyncio
     from app.api.deps import warm_up
-    await warm_up()
+    asyncio.create_task(warm_up())
 
     yield
 

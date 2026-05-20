@@ -63,8 +63,8 @@ desktop.ini
 # Jupyter
 .ipynb_checkpoints/
 
-# ML Models (large binary files)
-models/
+# ML Models (large binary files) — ignore root-level models/ only, not app/models/
+/models/
 *.bin
 *.pt
 *.pth

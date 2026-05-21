@@ -228,10 +228,10 @@ async def delete_paper(
                 detail="The requested paper does not exist"
             )
 
-        # Remove from dedup cache
-        _UPLOAD_HASHES.update({k: v for k, v in _UPLOAD_HASHES.items() if v != paper_id})
-        global _UPLOAD_HASHES
-        _UPLOAD_HASHES = {k: v for k, v in _UPLOAD_HASHES.items() if v != paper_id}
+        # Remove from dedup cache (mutate in-place, no global needed)
+        keys_to_remove = [k for k, v in _UPLOAD_HASHES.items() if v == paper_id]
+        for k in keys_to_remove:
+            _UPLOAD_HASHES.pop(k, None)
 
         app_logger.info(f"Paper deleted: {paper_id}")
         

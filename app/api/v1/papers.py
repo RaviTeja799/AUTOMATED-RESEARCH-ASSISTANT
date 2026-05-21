@@ -1,6 +1,7 @@
 """
 Paper management endpoints.
 """
+import hashlib
 from typing import List
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Query
 from fastapi.responses import JSONResponse
@@ -22,6 +23,9 @@ from app.utils.logger import app_logger
 
 
 router = APIRouter(prefix="/papers", tags=["Papers"])
+
+# In-memory deduplication cache: {sha256_hash: paper_id}
+_UPLOAD_HASHES: dict = {}
 
 
 @router.post("/upload", response_model=PaperUploadResponse, status_code=status.HTTP_201_CREATED)
@@ -75,13 +79,30 @@ async def upload_paper(
             "Empty file",
             detail="Uploaded file is empty"
         )
-    
+
+    # Deduplication — reject if same file content already indexed
+    file_hash = hashlib.sha256(file_content).hexdigest()
+    if file_hash in _UPLOAD_HASHES:
+        existing_id = _UPLOAD_HASHES[file_hash]
+        app_logger.info(f"Duplicate upload detected: {file.filename} matches {existing_id}")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "Duplicate paper",
+                "detail": f"This file has already been uploaded.",
+                "existing_paper_id": existing_id,
+            }
+        )
+
     try:
         # Process document
         response = await document_service.process_document(
             file_content=file_content,
             filename=file.filename,
         )
+
+        if response.status == "success":
+            _UPLOAD_HASHES[file_hash] = response.paper_id
         
         app_logger.info(
             f"Paper uploaded successfully: {response.paper_id}",
@@ -200,13 +221,18 @@ async def delete_paper(
     """
     try:
         success = await document_service.delete_paper(paper_id)
-        
+
         if not success:
             raise PaperNotFoundError(
                 f"Paper not found: {paper_id}",
                 detail="The requested paper does not exist"
             )
-        
+
+        # Remove from dedup cache
+        _UPLOAD_HASHES.update({k: v for k, v in _UPLOAD_HASHES.items() if v != paper_id})
+        global _UPLOAD_HASHES
+        _UPLOAD_HASHES = {k: v for k, v in _UPLOAD_HASHES.items() if v != paper_id}
+
         app_logger.info(f"Paper deleted: {paper_id}")
         
     except PaperNotFoundError as e:

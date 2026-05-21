@@ -16,6 +16,11 @@
   .typing::after { content: '▎'; animation: blink 1s infinite; }
   @keyframes blink { 50% { opacity: 0; } }
   .citation { display: inline-block; padding: 2px 8px; background: #1e3a8a; color: #93c5fd; border-radius: 4px; font-size: 11px; margin: 0 2px; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .progress-step { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: #64748b; }
+  .progress-step.active { color: #a5b4fc; }
+  .progress-step.done { color: #4ade80; }
 </style>
 </head>
 <body class="min-h-screen">
@@ -42,19 +47,30 @@
 
   <!-- CHAT TAB -->
   <div id="panel-chat" class="panel">
-    <div class="glass rounded-xl p-6">
-      <div id="chat-messages" class="space-y-4 mb-4 min-h-[400px] max-h-[60vh] overflow-y-auto pr-2">
-        <div class="text-center text-slate-500 py-12">
-          <div class="text-5xl mb-4">🔍</div>
-          <p>Ask anything about the papers you've uploaded</p>
-          <p class="text-xs mt-2 text-slate-600">Try: "What is the attention mechanism?" or "What are the BLEU scores?"</p>
+    <div class="flex gap-4">
+      <!-- History sidebar -->
+      <div class="glass rounded-xl p-4 w-56 flex-shrink-0 hidden md:block">
+        <div class="flex justify-between items-center mb-3">
+          <span class="text-sm font-medium text-slate-400">Recent Queries</span>
+          <button onclick="clearHistory()" class="text-xs text-slate-600 hover:text-slate-400">Clear</button>
         </div>
+        <div id="query-history" class="space-y-1 max-h-[500px] overflow-y-auto"></div>
       </div>
-      <div class="flex gap-2">
-        <input id="chat-input" type="text" placeholder="Ask a research question..."
-          class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500"
-          onkeydown="if(event.key==='Enter')sendQuery()">
-        <button onclick="sendQuery()" id="send-btn" class="btn-primary px-6 py-3 rounded-lg font-medium">Ask →</button>
+      <!-- Chat area -->
+      <div class="glass rounded-xl p-6 flex-1">
+        <div id="chat-messages" class="space-y-4 mb-4 min-h-[400px] max-h-[60vh] overflow-y-auto pr-2">
+          <div class="text-center text-slate-500 py-12">
+            <div class="text-5xl mb-4">🔍</div>
+            <p>Ask anything about the papers you've uploaded</p>
+            <p class="text-xs mt-2 text-slate-600">Try: "What is the attention mechanism?" or "What are the BLEU scores?"</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <input id="chat-input" type="text" placeholder="Ask a research question..."
+            class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500"
+            onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendQuery();}">
+          <button onclick="sendQuery()" id="send-btn" class="btn-primary px-6 py-3 rounded-lg font-medium min-w-[80px]">Ask →</button>
+        </div>
       </div>
     </div>
   </div>
@@ -68,7 +84,16 @@
         <p class="text-sm text-slate-500">Academic papers · Max 50MB</p>
         <input type="file" id="file-input" accept=".pdf" class="hidden">
       </div>
-      <div id="upload-status" class="mt-6 hidden"></div>
+      <div id="upload-status" class="mt-6 hidden">
+        <div id="upload-progress" class="glass p-4 rounded-lg mb-3 hidden">
+          <div class="font-medium mb-3 flex items-center gap-2"><span class="spinner"></span> Processing...</div>
+          <div class="progress-step" id="step-extract">📄 Extracting text from PDF</div>
+          <div class="progress-step" id="step-chunk">✂️ Chunking by sections</div>
+          <div class="progress-step" id="step-embed">🧠 Generating embeddings</div>
+          <div class="progress-step" id="step-index">☁️ Indexing in Qdrant Cloud</div>
+        </div>
+        <div id="upload-result"></div>
+      </div>
     </div>
   </div>
 
@@ -115,36 +140,59 @@
 </div>
 
 <script>
-// Use relative URL so it works on any host (Railway, local, etc.)
 const API = window.location.origin + '/api/v1';
+const HISTORY_KEY = 'ra_query_history';
 
+// ── Query History ─────────────────────────────────────────────────────────────
+function getHistory() { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; } }
+function saveHistory(h) { localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, 20))); }
+function addToHistory(q) {
+  const h = getHistory().filter(x => x !== q);
+  h.unshift(q);
+  saveHistory(h);
+  renderHistory();
+}
+function clearHistory() { localStorage.removeItem(HISTORY_KEY); renderHistory(); }
+function renderHistory() {
+  const el = document.getElementById('query-history');
+  const h = getHistory();
+  if (!h.length) { el.innerHTML = '<div class="text-xs text-slate-600 px-2">No history yet</div>'; return; }
+  el.innerHTML = h.map(q => `<div class="history-item text-xs py-1 px-2 rounded hover:bg-slate-800 cursor-pointer text-slate-400 hover:text-slate-200 truncate" onclick="useHistory(${JSON.stringify(q)})" title="${escapeHtml(q)}">${escapeHtml(q.slice(0,45))}${q.length>45?'…':''}</div>`).join('');
+}
+function useHistory(q) { document.getElementById('chat-input').value = q; document.getElementById('chat-input').focus(); }
+
+// ── Health ────────────────────────────────────────────────────────────────────
 async function checkHealth() {
   try {
     const r = await fetch(`${API}/health`);
     const h = await r.json();
     const ok = h.status === 'healthy';
     document.getElementById('status-pill').innerHTML =
-      `<span class="inline-block w-2 h-2 rounded-full ${ok?'bg-green-400':'bg-red-400'} mr-2"></span>` +
-      `<span class="text-${ok?'green':'red'}-400">${ok?'Healthy':'Degraded'}</span>` +
+      `<span class="inline-block w-2 h-2 rounded-full ${ok?'bg-green-400':'bg-yellow-400'} mr-2"></span>` +
+      `<span class="text-${ok?'green':'yellow'}-400">${ok?'Healthy':'Degraded'}</span>` +
       ` · Qdrant ${h.qdrant_connected?'✓':'✗'} · Groq ${h.groq_available?'✓':'✗'}`;
-  } catch(e) {
+  } catch {
     document.getElementById('status-pill').innerHTML =
-      `<span class="inline-block w-2 h-2 rounded-full bg-red-400 mr-2"></span>` +
-      `<span class="text-red-400">Server offline</span>`;
+      `<span class="inline-block w-2 h-2 rounded-full bg-red-400 mr-2"></span><span class="text-red-400">Server offline</span>`;
   }
 }
 
+// ── Tabs ──────────────────────────────────────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
-  document.querySelectorAll('.tab-btn').forEach(b => {
-    b.classList.remove('bg-indigo-600','text-white');
-    b.classList.add('text-slate-400');
-  });
+  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('bg-indigo-600','text-white'); b.classList.add('text-slate-400'); });
   document.getElementById(`panel-${name}`).classList.remove('hidden');
   const btn = document.getElementById(`tab-${name}`);
-  btn.classList.add('bg-indigo-600','text-white');
-  btn.classList.remove('text-slate-400');
+  btn.classList.add('bg-indigo-600','text-white'); btn.classList.remove('text-slate-400');
   if (name === 'papers' || name === 'summarize') loadPapers();
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+function escapeHtml(t) { return (t||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+function formatAnswer(t) {
+  return escapeHtml(t)
+    .replace(/\[([^\]]+)\]/g,'<span class="citation">$1</span>')
+    .replace(/\n\n/g,'</p><p>').replace(/^/,'<p>').replace(/$/,'</p>');
 }
 
 function addMessage(role, content, meta) {
@@ -152,52 +200,50 @@ function addMessage(role, content, meta) {
   if (messages.querySelector('.text-center')) messages.innerHTML = '';
   const div = document.createElement('div');
   div.className = role === 'user' ? 'flex justify-end' : 'flex justify-start';
-  const bubble = role === 'user'
+  div.innerHTML = role === 'user'
     ? `<div class="bg-indigo-600 px-4 py-3 rounded-2xl rounded-br-sm max-w-[80%]">${escapeHtml(content)}</div>`
     : `<div class="glass px-4 py-3 rounded-2xl rounded-bl-sm max-w-[85%]">
-         <div class="prose prose-invert prose-sm max-w-none">${formatAnswer(content)}</div>
-         ${meta ? `<div class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-700">
-           ⚡ ${meta.processing_time?.toFixed(1)}s · 📚 ${meta.retrieved_chunks} chunks · 🎯 ${(meta.confidence*100).toFixed(0)}% confidence
-           ${meta.citations?.length ? `<div class="mt-2">${meta.citations.map(c => `<span class="citation">${escapeHtml(c.paper_title?.slice(0,50)||'paper')}</span>`).join('')}</div>` : ''}
-         </div>` : ''}
-       </div>`;
-  div.innerHTML = bubble;
+        <div class="prose prose-invert prose-sm max-w-none">${formatAnswer(content)}</div>
+        ${meta ? `<div class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-700">
+          ⚡ ${meta.processing_time?.toFixed(1)}s · 📚 ${meta.retrieved_chunks} chunks · 🎯 ${((meta.confidence||0)*100).toFixed(0)}% confidence
+          ${meta.citations?.length ? `<div class="mt-2 flex flex-wrap gap-1">${meta.citations.map(c=>`<span class="citation">${escapeHtml(c.paper_title?.slice(0,40)||'paper')}</span>`).join('')}</div>` : ''}
+        </div>` : ''}
+      </div>`;
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
   return div;
 }
 
-function escapeHtml(t) { return (t||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
-function formatAnswer(t) {
-  return escapeHtml(t)
-    .replace(/\[([^\]]+)\]/g, '<span class="citation">$1</span>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/^/, '<p>').replace(/$/, '</p>');
-}
-
 async function sendQuery() {
   const input = document.getElementById('chat-input');
+  const btn = document.getElementById('send-btn');
   const q = input.value.trim();
   if (!q) return;
   input.value = '';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
   addMessage('user', q);
-  const loadingMsg = addMessage('assistant', 'Thinking...');
-  loadingMsg.querySelector('.prose').classList.add('typing');
+  addToHistory(q);
+  const loading = addMessage('assistant', 'Thinking...');
+  loading.querySelector('.prose').classList.add('typing');
   try {
     const r = await fetch(`${API}/query`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({question: q, top_k: 5})
     });
     const data = await r.json();
-    loadingMsg.remove();
+    loading.remove();
     addMessage('assistant', data.answer || data.detail?.detail || 'No response', data);
   } catch(e) {
-    loadingMsg.remove();
+    loading.remove();
     addMessage('assistant', `Error: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Ask →';
   }
 }
 
+// ── Papers ────────────────────────────────────────────────────────────────────
 async function loadPapers() {
   try {
     const r = await fetch(`${API}/papers`);
@@ -212,19 +258,16 @@ async function loadPapers() {
     list.innerHTML = papers.map(p => `
       <div class="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
         <div class="flex justify-between items-start">
-          <div class="flex-1">
-            <div class="font-medium">${escapeHtml(p.metadata?.title || 'Untitled')}</div>
-            <div class="text-xs text-slate-500 mt-1">ID: ${p.paper_id}</div>
-            <div class="text-sm text-slate-400 mt-2">
-              📑 ${p.num_chunks} chunks · 📂 ${(p.sections||[]).join(', ') || 'no sections'}
-            </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-medium truncate">${escapeHtml(p.metadata?.title || 'Untitled')}</div>
+            <div class="text-xs text-slate-500 mt-1 font-mono">${p.paper_id.slice(0,8)}…</div>
+            <div class="text-sm text-slate-400 mt-2">📑 ${p.num_chunks} chunks · 📂 ${(p.sections||[]).slice(0,4).join(', ')}</div>
           </div>
-          <button onclick="deletePaper('${p.paper_id}')" class="text-red-400 hover:text-red-300 text-sm">🗑️</button>
+          <button onclick="deletePaper('${p.paper_id}')" class="text-red-400 hover:text-red-300 ml-3 flex-shrink-0" title="Delete">🗑️</button>
         </div>
-      </div>
-    `).join('');
+      </div>`).join('');
     select.innerHTML = papers.map(p =>
-      `<option value="${p.paper_id}">${escapeHtml(p.metadata?.title?.slice(0,80) || p.paper_id)}</option>`
+      `<option value="${p.paper_id}">${escapeHtml((p.metadata?.title||p.paper_id).slice(0,80))}</option>`
     ).join('');
   } catch(e) {
     document.getElementById('papers-list').innerHTML = `<div class="text-red-400">Error: ${e.message}</div>`;
@@ -232,113 +275,149 @@ async function loadPapers() {
 }
 
 async function deletePaper(id) {
-  if (!confirm('Delete this paper from Qdrant?')) return;
-  await fetch(`${API}/papers/${id}`, {method: 'DELETE'});
-  loadPapers();
+  if (!confirm('Delete this paper from Qdrant Cloud?')) return;
+  const r = await fetch(`${API}/papers/${id}`, {method:'DELETE'});
+  if (r.ok || r.status === 204) loadPapers();
 }
 
+// ── Upload with progress steps ────────────────────────────────────────────────
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+dropzone.onclick = () => fileInput.click();
+dropzone.ondragover = e => { e.preventDefault(); dropzone.classList.add('border-indigo-500'); };
+dropzone.ondragleave = () => dropzone.classList.remove('border-indigo-500');
+dropzone.ondrop = e => { e.preventDefault(); dropzone.classList.remove('border-indigo-500'); if(e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]); };
+fileInput.onchange = e => { if(e.target.files[0]) uploadFile(e.target.files[0]); };
+
+function setStep(id, state) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'progress-step ' + state;
+  if (state === 'active') el.innerHTML = '<span class="spinner mr-2"></span>' + el.textContent.trim();
+  else if (state === 'done') el.innerHTML = '✅ ' + el.textContent.replace(/^[^\s]+\s/, '');
+}
+
+async function uploadFile(file) {
+  const status = document.getElementById('upload-status');
+  const progress = document.getElementById('upload-progress');
+  const result = document.getElementById('upload-result');
+  status.classList.remove('hidden');
+  progress.classList.remove('hidden');
+  result.innerHTML = '';
+  ['step-extract','step-chunk','step-embed','step-index'].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.className = 'progress-step';
+  });
+
+  // Animate steps (approximate timing)
+  setStep('step-extract', 'active');
+  const timer1 = setTimeout(() => { setStep('step-extract','done'); setStep('step-chunk','active'); }, 1500);
+  const timer2 = setTimeout(() => { setStep('step-chunk','done'); setStep('step-embed','active'); }, 4000);
+  const timer3 = setTimeout(() => { setStep('step-embed','done'); setStep('step-index','active'); }, 9000);
+
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await fetch(`${API}/papers/upload`, {method:'POST', body:fd});
+    clearTimeout(timer1); clearTimeout(timer2); clearTimeout(timer3);
+    const data = await r.json();
+
+    if (r.status === 409) {
+      // Duplicate
+      progress.classList.add('hidden');
+      result.innerHTML = `<div class="bg-yellow-900/30 border border-yellow-700 p-4 rounded-lg">
+        <div class="text-yellow-400 font-medium mb-1">⚠️ Duplicate paper</div>
+        <div class="text-sm text-slate-300">This file has already been uploaded.</div>
+        <div class="text-xs text-slate-500 mt-1">Existing ID: ${data.existing_paper_id}</div>
+      </div>`;
+      return;
+    }
+
+    ['step-extract','step-chunk','step-embed','step-index'].forEach(s => setStep(s,'done'));
+    setTimeout(() => progress.classList.add('hidden'), 500);
+
+    if (data.status === 'success') {
+      result.innerHTML = `<div class="bg-green-900/30 border border-green-700 p-4 rounded-lg">
+        <div class="text-green-400 font-medium mb-2">✓ Successfully indexed</div>
+        <div class="text-sm text-slate-300 space-y-1">
+          <div><strong>Title:</strong> ${escapeHtml(data.metadata?.title || 'N/A')}</div>
+          <div><strong>Pages:</strong> ${data.metadata?.num_pages || '?'} · <strong>Chunks:</strong> ${data.num_chunks} · <strong>Time:</strong> ${data.processing_time?.toFixed(1)}s</div>
+          ${data.metadata?.abstract ? `<div class="text-slate-400 text-xs mt-2 line-clamp-3">${escapeHtml(data.metadata.abstract.slice(0,200))}…</div>` : ''}
+        </div>
+      </div>`;
+    } else {
+      result.innerHTML = `<div class="bg-red-900/30 border border-red-700 p-4 rounded-lg text-red-300">✗ ${escapeHtml(data.message||data.detail?.error||'Upload failed')}</div>`;
+    }
+  } catch(e) {
+    clearTimeout(timer1); clearTimeout(timer2); clearTimeout(timer3);
+    progress.classList.add('hidden');
+    result.innerHTML = `<div class="bg-red-900/30 border border-red-700 p-4 rounded-lg text-red-300">Error: ${e.message}</div>`;
+  }
+}
+
+// ── Summarize ─────────────────────────────────────────────────────────────────
 async function generateSummary() {
   const paper_id = document.getElementById('sum-paper').value;
   const summary_type = document.getElementById('sum-type').value;
   const result = document.getElementById('summary-result');
-  result.innerHTML = '<div class="text-slate-400">⏳ Generating summary...</div>';
+  const btn = event.target;
+  btn.disabled = true; btn.innerHTML = '<span class="spinner mr-2"></span>Generating…';
+  result.innerHTML = '';
   try {
     const r = await fetch(`${API}/summarize`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({paper_id, summary_type})
     });
     const s = await r.json();
-    result.innerHTML = `
-      <div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
-        <h3 class="text-lg font-semibold mb-2">${escapeHtml(s.paper_title || 'Summary')}</h3>
-        <p class="text-slate-300 mb-4 leading-relaxed">${escapeHtml(s.summary || '')}</p>
-        ${s.key_findings?.length ? `
-          <div class="mb-3">
-            <h4 class="font-medium text-indigo-400 mb-2">Key Findings</h4>
-            <ul class="list-disc list-inside text-slate-300 space-y-1">
-              ${s.key_findings.map(f => `<li>${escapeHtml(f)}</li>`).join('')}
-            </ul>
-          </div>` : ''}
-        ${s.methodology ? `<div class="mb-3"><h4 class="font-medium text-indigo-400 mb-1">Methodology</h4><p class="text-slate-300">${escapeHtml(s.methodology)}</p></div>` : ''}
-        ${s.limitations ? `<div><h4 class="font-medium text-indigo-400 mb-1">Limitations</h4><p class="text-slate-300">${escapeHtml(s.limitations)}</p></div>` : ''}
-      </div>
-    `;
+    result.innerHTML = `<div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700 space-y-4">
+      <h3 class="text-lg font-semibold">${escapeHtml(s.paper_title||'Summary')}</h3>
+      <p class="text-slate-300 leading-relaxed">${escapeHtml(s.summary||'')}</p>
+      ${s.key_findings?.length ? `<div><h4 class="font-medium text-indigo-400 mb-2">Key Findings</h4><ul class="list-disc list-inside text-slate-300 space-y-1">${s.key_findings.map(f=>`<li>${escapeHtml(f)}</li>`).join('')}</ul></div>` : ''}
+      ${s.methodology ? `<div><h4 class="font-medium text-indigo-400 mb-1">Methodology</h4><p class="text-slate-300">${escapeHtml(s.methodology)}</p></div>` : ''}
+      ${s.limitations ? `<div><h4 class="font-medium text-indigo-400 mb-1">Limitations</h4><p class="text-slate-300">${escapeHtml(s.limitations)}</p></div>` : ''}
+    </div>`;
   } catch(e) {
     result.innerHTML = `<div class="text-red-400">Error: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.innerHTML = 'Generate Summary';
   }
 }
 
+// ── Literature Review ─────────────────────────────────────────────────────────
 async function generateReview() {
   const topic = document.getElementById('rev-topic').value.trim();
   if (!topic) return alert('Enter a topic');
   const result = document.getElementById('review-result');
-  result.innerHTML = '<div class="text-slate-400">⏳ Generating literature review...</div>';
+  const btn = event.target;
+  btn.disabled = true; btn.innerHTML = '<span class="spinner mr-2"></span>Generating…';
+  result.innerHTML = '';
   try {
     const r = await fetch(`${API}/literature-review`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({topic, max_papers: 10})
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({topic, max_papers:10})
     });
     const lr = await r.json();
-    result.innerHTML = `
-      <div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700 space-y-4">
-        <div><h3 class="text-lg font-semibold mb-2">${escapeHtml(lr.topic)}</h3>
-          <p class="text-slate-300 leading-relaxed">${escapeHtml(lr.overview || '')}</p></div>
-        ${lr.key_themes?.length ? `<div><h4 class="font-medium text-indigo-400 mb-2">Key Themes</h4>
-          <ul class="list-disc list-inside text-slate-300">${lr.key_themes.map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul></div>` : ''}
-        ${lr.research_gaps?.length ? `<div><h4 class="font-medium text-indigo-400 mb-2">Research Gaps</h4>
-          <ul class="list-disc list-inside text-slate-300">${lr.research_gaps.map(g=>`<li>${escapeHtml(g)}</li>`).join('')}</ul></div>` : ''}
-        ${lr.future_directions?.length ? `<div><h4 class="font-medium text-indigo-400 mb-2">Future Directions</h4>
-          <ul class="list-disc list-inside text-slate-300">${lr.future_directions.map(d=>`<li>${escapeHtml(d)}</li>`).join('')}</ul></div>` : ''}
-        <div class="text-xs text-slate-500 pt-3 border-t border-slate-700">${lr.num_papers} papers analyzed</div>
-      </div>
-    `;
+    result.innerHTML = `<div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700 space-y-4">
+      <h3 class="text-lg font-semibold">${escapeHtml(lr.topic)}</h3>
+      <p class="text-slate-300 leading-relaxed">${escapeHtml(lr.overview||'')}</p>
+      ${lr.key_themes?.length ? `<div><h4 class="font-medium text-indigo-400 mb-2">Key Themes</h4><ul class="list-disc list-inside text-slate-300">${lr.key_themes.map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul></div>` : ''}
+      ${lr.research_gaps?.length ? `<div><h4 class="font-medium text-indigo-400 mb-2">Research Gaps</h4><ul class="list-disc list-inside text-slate-300">${lr.research_gaps.map(g=>`<li>${escapeHtml(g)}</li>`).join('')}</ul></div>` : ''}
+      ${lr.future_directions?.length ? `<div><h4 class="font-medium text-indigo-400 mb-2">Future Directions</h4><ul class="list-disc list-inside text-slate-300">${lr.future_directions.map(d=>`<li>${escapeHtml(d)}</li>`).join('')}</ul></div>` : ''}
+      <div class="text-xs text-slate-500 pt-3 border-t border-slate-700">${lr.num_papers} papers analyzed</div>
+    </div>`;
   } catch(e) {
     result.innerHTML = `<div class="text-red-400">Error: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.innerHTML = 'Generate Review';
   }
 }
 
-// Upload handling
-const dropzone = document.getElementById('dropzone');
-const fileInput = document.getElementById('file-input');
-const uploadStatus = document.getElementById('upload-status');
-dropzone.onclick = () => fileInput.click();
-dropzone.ondragover = e => { e.preventDefault(); dropzone.classList.add('border-indigo-500'); };
-dropzone.ondragleave = () => dropzone.classList.remove('border-indigo-500');
-dropzone.ondrop = e => { e.preventDefault(); dropzone.classList.remove('border-indigo-500'); if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]); };
-fileInput.onchange = e => { if (e.target.files[0]) uploadFile(e.target.files[0]); };
-
-async function uploadFile(file) {
-  uploadStatus.classList.remove('hidden');
-  uploadStatus.innerHTML = `<div class="glass p-4 rounded-lg">⏳ Uploading <strong>${escapeHtml(file.name)}</strong> (${(file.size/1024/1024).toFixed(1)}MB)...<br><span class="text-sm text-slate-400">Extracting → Chunking → Embedding → Indexing in Qdrant Cloud</span></div>`;
-  const fd = new FormData();
-  fd.append('file', file);
-  try {
-    const r = await fetch(`${API}/papers/upload`, {method: 'POST', body: fd});
-    const data = await r.json();
-    if (data.status === 'success') {
-      uploadStatus.innerHTML = `
-        <div class="bg-green-900/30 border border-green-700 p-4 rounded-lg">
-          <div class="text-green-400 font-medium mb-2">✓ Successfully indexed</div>
-          <div class="text-sm text-slate-300 space-y-1">
-            <div><strong>Title:</strong> ${escapeHtml(data.metadata?.title || 'N/A')}</div>
-            <div><strong>Pages:</strong> ${data.metadata?.num_pages || '?'}</div>
-            <div><strong>Chunks created:</strong> ${data.num_chunks}</div>
-            <div><strong>Time:</strong> ${data.processing_time.toFixed(1)}s</div>
-          </div>
-        </div>`;
-    } else {
-      uploadStatus.innerHTML = `<div class="bg-red-900/30 border border-red-700 p-4 rounded-lg text-red-300">✗ ${escapeHtml(data.message || 'Upload failed')}</div>`;
-    }
-  } catch(e) {
-    uploadStatus.innerHTML = `<div class="bg-red-900/30 border border-red-700 p-4 rounded-lg text-red-300">Error: ${e.message}</div>`;
-  }
-}
-
+// ── Init ──────────────────────────────────────────────────────────────────────
 checkHealth();
 setInterval(checkHealth, 30000);
 loadPapers();
+renderHistory();
 </script>
+
 </body>
 </html>

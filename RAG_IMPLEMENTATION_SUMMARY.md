@@ -17,10 +17,8 @@
 | Web UI | ✅ | Single-page, 5 tabs, Tailwind CSS |
 | Health endpoint | ✅ | Checks Qdrant + Groq connectivity |
 
-## Known limitations / planned improvements
+## Known limitations
 
-- `embed_query()` is synchronous — blocks event loop during inference. Wrap in `run_in_executor` for production.
-- `list_papers()` does N+1 Qdrant scrolls. Cache paper metadata at index time.
-- `get_paper_ids()` scrolls entire collection. Maintain a separate ID set.
-- Agent re-instantiated per request. Make it a singleton with per-request memory.
-- No persistent query cache (resets on restart). Add Redis for production.
+- Agent re-instantiated per request. Make it a singleton with per-request memory for better performance.
+- No persistent query cache (resets on restart). Add Redis for production use.
+- `get_paper_ids()` scrolls entire Qdrant collection. For large collections, maintain a separate ID set.

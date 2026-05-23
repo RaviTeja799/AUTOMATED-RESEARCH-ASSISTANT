@@ -1,10 +1,11 @@
 """
 Embedding service — sentence-transformers with async wrapper.
 CPU-bound encode() runs in a thread pool so it never blocks the event loop.
-Includes an LRU cache for repeated queries.
+Supports two backends: local sentence-transformers (default) or HuggingFace Inference API.
+Set EMBEDDING_PROVIDER=hf_api to use the API backend (no torch required).
 """
 import asyncio
-import functools
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Union
 

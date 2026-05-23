@@ -124,7 +124,7 @@ POST /api/v1/agent
 
 **TTL cache on queries** — Identical questions within 120s skip Qdrant + Groq entirely.
 
-**Sync embedding in async context** — `SentenceTransformer.encode()` is CPU-bound. Currently called synchronously; wrapping in `run_in_executor` is a planned optimization.
+**Sync embedding in async context** — `SentenceTransformer.encode()` is CPU-bound and runs in a dedicated `ThreadPoolExecutor` via `run_in_executor`, so it never blocks the event loop.
 
 ## Qdrant Collection Schema
 

@@ -1,13 +1,4 @@
----
-title: Automated Research Assistant
-emoji: 🔬
-colorFrom: indigo
-colorTo: purple
-sdk: docker
-pinned: false
-license: mit
-short_description: RAG-powered Q&A on academic papers using Groq + Qdrant
----
+
 
 <div align="center">
 
@@ -28,8 +19,6 @@ Upload academic PDFs → Ask questions → Get cited answers
 ## 🚀 Live Demo
 
 **[https://vamsi-op-automated-research-assistant.hf.space](https://vamsi-op-automated-research-assistant.hf.space)**
-
-Hosted on HuggingFace Spaces — free, always on, no cold starts.
 
 ---
 

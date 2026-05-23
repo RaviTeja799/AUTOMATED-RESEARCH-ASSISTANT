@@ -195,3 +195,37 @@ python scripts/benchmark.py
 ## 📄 License
 
 MIT — see [LICENSE](LICENSE)
+
+---
+
+## 👤 Author
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/vamsi-op">
+        <img src="https://github.com/vamsi-op.png" width="80px" alt="Vamsi Puttepu"/><br/>
+        <sub><b>Vamsi Puttepu</b></sub>
+      </a><br/>
+      <a href="https://github.com/vamsi-op/AUTOMATED-RESEARCH-ASSISTANT/commits?author=vamsi-op">💻</a>
+    </td>
+  </tr>
+</table>
+
+---
+
+## 🤝 Contributing
+
+Contributions, issues and feature requests are welcome.
+
+1. Fork the repo
+2. Create a branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m 'feat: add your feature'`
+4. Push: `git push origin feature/your-feature`
+5. Open a Pull Request
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ using FastAPI · Groq · Qdrant · sentence-transformers</sub>
+</div>

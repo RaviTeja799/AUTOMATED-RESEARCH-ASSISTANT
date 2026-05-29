@@ -3,73 +3,142 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Research Assistant</title>
+<title>Research Assistant · RAG-powered paper Q&A</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🔬%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  body { font-family: 'Inter', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
-  .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); border: 1px solid rgba(148, 163, 184, 0.1); }
-  .btn-primary { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
-  .btn-primary:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
-  ::-webkit-scrollbar { width: 8px; }
-  ::-webkit-scrollbar-track { background: #1e293b; }
-  ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-  .typing::after { content: '▎'; animation: blink 1s infinite; }
+  :root {
+    --bg-0: #0a0e1a;
+    --bg-1: #0f172a;
+    --bg-2: #1e293b;
+    --border: rgba(148, 163, 184, 0.12);
+    --accent: #8b5cf6;
+    --accent-hover: #7c3aed;
+  }
+  * { -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg-0);
+    color: #e2e8f0;
+    background-image:
+      radial-gradient(at 20% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+      radial-gradient(at 80% 100%, rgba(139, 92, 246, 0.08) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+  code, .mono { font-family: 'JetBrains Mono', monospace; }
+  .glass {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    transition: all 0.2s ease;
+  }
+  .btn-primary:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(139, 92, 246, 0.25); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  .typing::after { content: '▎'; animation: blink 1s infinite; color: #a5b4fc; }
   @keyframes blink { 50% { opacity: 0; } }
-  .citation { display: inline-block; padding: 2px 8px; background: #1e3a8a; color: #93c5fd; border-radius: 4px; font-size: 11px; margin: 0 2px; }
-  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; }
+  .citation { display: inline-block; padding: 2px 8px; background: rgba(30, 58, 138, 0.6); color: #93c5fd; border-radius: 4px; font-size: 11px; margin: 0 2px; font-family: 'JetBrains Mono', monospace; transition: all 0.15s; }
+  .citation:hover { background: rgba(30, 58, 138, 0.9); transform: translateY(-1px); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .progress-step { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: #64748b; }
+  .progress-step { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; color: #64748b; transition: all 0.3s; }
   .progress-step.active { color: #a5b4fc; }
   .progress-step.done { color: #4ade80; }
+  .fade-in { animation: fadeIn 0.3s ease forwards; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .gradient-text { background: linear-gradient(135deg, #818cf8 0%, #c084fc 50%, #f472b6 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .tab-btn { transition: all 0.15s ease; }
+  .tab-btn:not(.active):hover { background: rgba(148, 163, 184, 0.08); }
+  .tab-btn.active { background: linear-gradient(135deg, rgba(99, 102, 241, 0.9), rgba(139, 92, 246, 0.9)); color: white; box-shadow: 0 4px 16px rgba(139, 92, 246, 0.25); }
+  .paper-card { transition: all 0.2s ease; }
+  .paper-card:hover { transform: translateY(-2px); border-color: rgba(139, 92, 246, 0.3); }
+  .example-chip { transition: all 0.15s ease; cursor: pointer; }
+  .example-chip:hover { background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.4); transform: translateY(-1px); }
+  .toast { animation: slideUp 0.3s ease; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .copy-btn { opacity: 0; transition: opacity 0.2s; }
+  .msg-bubble:hover .copy-btn { opacity: 1; }
+  kbd { padding: 2px 6px; background: #1e293b; border: 1px solid #334155; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .pulse-dot { animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 </style>
 </head>
 <body class="min-h-screen">
 <div class="container mx-auto px-4 py-6 max-w-7xl">
 
-  <header class="mb-6 flex items-center justify-between">
-    <div>
-      <h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Research Assistant</h1>
-      <p class="text-sm text-slate-400 mt-1">RAG-powered Q&A on academic papers · Groq + Qdrant Cloud</p>
+  <header class="mb-8 flex items-center justify-between flex-wrap gap-4">
+    <div class="flex items-center gap-3">
+      <div class="text-4xl">🔬</div>
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold gradient-text leading-tight">Research Assistant</h1>
+        <p class="text-xs md:text-sm text-slate-400 mt-0.5">RAG-powered Q&A on academic papers · Groq + Qdrant Cloud</p>
+      </div>
     </div>
-    <div id="status-pill" class="glass px-4 py-2 rounded-full text-sm">
-      <span class="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-2"></span>
-      <span id="status-text">Connecting...</span>
+    <div class="flex items-center gap-3">
+      <a href="https://github.com/vamsi-op/AUTOMATED-RESEARCH-ASSISTANT" target="_blank" rel="noopener" class="glass px-3 py-2 rounded-lg text-sm hover:bg-slate-800/80 transition flex items-center gap-2" title="View on GitHub">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        <span class="hidden sm:inline">GitHub</span>
+      </a>
+      <div id="status-pill" class="glass px-3 py-2 rounded-lg text-xs md:text-sm">
+        <span class="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-2 pulse-dot"></span>
+        <span id="status-text">Connecting…</span>
+      </div>
     </div>
   </header>
 
-  <nav class="glass rounded-xl p-1 mb-6 inline-flex">
-    <button onclick="switchTab('chat')" id="tab-chat" class="tab-btn px-5 py-2 rounded-lg transition bg-indigo-600 text-white">💬 Chat</button>
-    <button onclick="switchTab('upload')" id="tab-upload" class="tab-btn px-5 py-2 rounded-lg transition text-slate-400 hover:text-white">📄 Upload</button>
-    <button onclick="switchTab('papers')" id="tab-papers" class="tab-btn px-5 py-2 rounded-lg transition text-slate-400 hover:text-white">📚 Papers</button>
-    <button onclick="switchTab('summarize')" id="tab-summarize" class="tab-btn px-5 py-2 rounded-lg transition text-slate-400 hover:text-white">📝 Summarize</button>
-    <button onclick="switchTab('review')" id="tab-review" class="tab-btn px-5 py-2 rounded-lg transition text-slate-400 hover:text-white">📊 Lit Review</button>
+  <nav class="glass rounded-xl p-1.5 mb-6 inline-flex flex-wrap gap-1 max-w-full overflow-x-auto">
+    <button onclick="switchTab('chat')" id="tab-chat" class="tab-btn active px-4 md:px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap">💬 Chat</button>
+    <button onclick="switchTab('upload')" id="tab-upload" class="tab-btn px-4 md:px-5 py-2 rounded-lg text-sm font-medium text-slate-400 whitespace-nowrap">📄 Upload</button>
+    <button onclick="switchTab('papers')" id="tab-papers" class="tab-btn px-4 md:px-5 py-2 rounded-lg text-sm font-medium text-slate-400 whitespace-nowrap">📚 Papers</button>
+    <button onclick="switchTab('summarize')" id="tab-summarize" class="tab-btn px-4 md:px-5 py-2 rounded-lg text-sm font-medium text-slate-400 whitespace-nowrap">📝 Summarize</button>
+    <button onclick="switchTab('review')" id="tab-review" class="tab-btn px-4 md:px-5 py-2 rounded-lg text-sm font-medium text-slate-400 whitespace-nowrap">📊 Lit Review</button>
   </nav>
 
   <!-- CHAT TAB -->
   <div id="panel-chat" class="panel">
     <div class="flex gap-4">
       <!-- History sidebar -->
-      <div class="glass rounded-xl p-4 w-56 flex-shrink-0 hidden md:block">
+      <aside class="glass rounded-xl p-4 w-60 flex-shrink-0 hidden lg:block">
         <div class="flex justify-between items-center mb-3">
-          <span class="text-sm font-medium text-slate-400">Recent Queries</span>
-          <button onclick="clearHistory()" class="text-xs text-slate-600 hover:text-slate-400">Clear</button>
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Recent Queries</span>
+          <button onclick="clearHistory()" class="text-xs text-slate-600 hover:text-red-400 transition" title="Clear history">Clear</button>
         </div>
-        <div id="query-history" class="space-y-1 max-h-[500px] overflow-y-auto"></div>
-      </div>
+        <div id="query-history" class="space-y-1 max-h-[480px] overflow-y-auto"></div>
+      </aside>
       <!-- Chat area -->
-      <div class="glass rounded-xl p-6 flex-1">
+      <div class="glass rounded-xl p-6 flex-1 min-w-0">
         <div id="chat-messages" class="space-y-4 mb-4 min-h-[400px] max-h-[60vh] overflow-y-auto pr-2">
-          <div class="text-center text-slate-500 py-12">
-            <div class="text-5xl mb-4">🔍</div>
-            <p>Ask anything about the papers you've uploaded</p>
-            <p class="text-xs mt-2 text-slate-600">Try: "What is the attention mechanism?" or "What are the BLEU scores?"</p>
+          <div id="empty-state" class="text-center text-slate-500 py-12">
+            <div class="text-6xl mb-4">🔍</div>
+            <p class="text-lg mb-1">Ask anything about your papers</p>
+            <p class="text-sm text-slate-600 mb-6">Get cited answers in seconds</p>
+            <div class="flex flex-wrap gap-2 justify-center max-w-xl mx-auto">
+              <button class="example-chip glass text-xs px-3 py-1.5 rounded-full text-slate-300 border border-slate-700" onclick="useExample('What is the attention mechanism?')">What is the attention mechanism?</button>
+              <button class="example-chip glass text-xs px-3 py-1.5 rounded-full text-slate-300 border border-slate-700" onclick="useExample('How does the methodology work?')">How does the methodology work?</button>
+              <button class="example-chip glass text-xs px-3 py-1.5 rounded-full text-slate-300 border border-slate-700" onclick="useExample('What are the key findings?')">What are the key findings?</button>
+              <button class="example-chip glass text-xs px-3 py-1.5 rounded-full text-slate-300 border border-slate-700" onclick="useExample('What are the limitations?')">What are the limitations?</button>
+            </div>
           </div>
         </div>
         <div class="flex gap-2">
-          <input id="chat-input" type="text" placeholder="Ask a research question..."
-            class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500"
+          <input id="chat-input" type="text" placeholder="Ask a research question…"
+            class="flex-1 bg-slate-800/60 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition"
             onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendQuery();}">
-          <button onclick="sendQuery()" id="send-btn" class="btn-primary px-6 py-3 rounded-lg font-medium min-w-[80px]">Ask →</button>
+          <button onclick="sendQuery()" id="send-btn" class="btn-primary px-6 py-3 rounded-lg font-medium min-w-[80px] text-white">Ask →</button>
+        </div>
+        <div class="text-xs text-slate-600 mt-2 flex items-center gap-2">
+          <span>Press <kbd>Enter</kbd> to send</span>
+          <span class="text-slate-700">·</span>
+          <span><kbd>/</kbd> to focus input</span>
         </div>
       </div>
     </div>
@@ -77,16 +146,21 @@
 
   <!-- UPLOAD TAB -->
   <div id="panel-upload" class="panel hidden">
-    <div class="glass rounded-xl p-8">
-      <div id="dropzone" class="border-2 border-dashed border-slate-600 rounded-xl p-12 text-center hover:border-indigo-500 transition cursor-pointer">
+    <div class="glass rounded-xl p-6 md:p-8">
+      <div id="dropzone" class="border-2 border-dashed border-slate-600 rounded-xl p-8 md:p-12 text-center hover:border-indigo-500 hover:bg-indigo-500/5 transition cursor-pointer">
         <div class="text-6xl mb-4">📄</div>
-        <p class="text-lg mb-2">Drop a PDF here or click to browse</p>
-        <p class="text-sm text-slate-500">Academic papers · Max 50MB</p>
+        <p class="text-lg font-medium mb-1">Drop a PDF here or click to browse</p>
+        <p class="text-sm text-slate-500">Academic papers · Max 50MB · PDF only</p>
         <input type="file" id="file-input" accept=".pdf" class="hidden">
+        <div class="mt-6 flex flex-wrap gap-2 justify-center text-xs text-slate-500">
+          <span class="glass px-3 py-1 rounded-full">✂️ Section-aware chunking</span>
+          <span class="glass px-3 py-1 rounded-full">🧠 384-dim embeddings</span>
+          <span class="glass px-3 py-1 rounded-full">☁️ Qdrant Cloud</span>
+        </div>
       </div>
       <div id="upload-status" class="mt-6 hidden">
-        <div id="upload-progress" class="glass p-4 rounded-lg mb-3 hidden">
-          <div class="font-medium mb-3 flex items-center gap-2"><span class="spinner"></span> Processing...</div>
+        <div id="upload-progress" class="glass p-5 rounded-xl mb-3 hidden">
+          <div class="font-medium mb-3 flex items-center gap-2"><span class="spinner"></span> Processing…</div>
           <div class="progress-step" id="step-extract">📄 Extracting text from PDF</div>
           <div class="progress-step" id="step-chunk">✂️ Chunking by sections</div>
           <div class="progress-step" id="step-embed">🧠 Generating embeddings</div>
@@ -100,26 +174,38 @@
   <!-- PAPERS TAB -->
   <div id="panel-papers" class="panel hidden">
     <div class="glass rounded-xl p-6">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-semibold">Indexed Papers</h2>
-        <button onclick="loadPapers()" class="text-sm text-indigo-400 hover:text-indigo-300">↻ Refresh</button>
+      <div class="flex justify-between items-center mb-5">
+        <div>
+          <h2 class="text-xl font-semibold">Indexed Papers</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Stored in Qdrant Cloud as 384-dim vectors</p>
+        </div>
+        <button onclick="loadPapers()" class="text-sm text-indigo-400 hover:text-indigo-300 transition flex items-center gap-1.5" title="Refresh list">
+          <span class="text-base">↻</span> Refresh
+        </button>
       </div>
-      <div id="papers-list" class="space-y-3"></div>
+      <div id="papers-list" class="grid gap-3"></div>
     </div>
   </div>
 
   <!-- SUMMARIZE TAB -->
   <div id="panel-summarize" class="panel hidden">
     <div class="glass rounded-xl p-6">
-      <h2 class="text-xl font-semibold mb-4">Summarize a Paper</h2>
+      <h2 class="text-xl font-semibold mb-1">Summarize a Paper</h2>
+      <p class="text-xs text-slate-500 mb-5">AI-generated structured summary with key findings, methodology, and limitations</p>
       <div class="grid gap-3 mb-4">
-        <select id="sum-paper" class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3"></select>
-        <select id="sum-type" class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3">
-          <option value="brief">Brief (200-300 words)</option>
-          <option value="comprehensive">Comprehensive (500-800 words)</option>
-          <option value="technical">Technical deep-dive</option>
-        </select>
-        <button onclick="generateSummary()" class="btn-primary px-6 py-3 rounded-lg font-medium">Generate Summary</button>
+        <div>
+          <label class="text-xs font-medium text-slate-400 mb-1.5 block">Paper</label>
+          <select id="sum-paper" class="w-full bg-slate-800/60 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 transition"></select>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-400 mb-1.5 block">Summary type</label>
+          <select id="sum-type" class="w-full bg-slate-800/60 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 transition">
+            <option value="brief">Brief — 200–300 words</option>
+            <option value="comprehensive">Comprehensive — 500–800 words</option>
+            <option value="technical">Technical deep-dive</option>
+          </select>
+        </div>
+        <button onclick="generateSummary()" class="btn-primary px-6 py-3 rounded-lg font-medium text-white">Generate Summary</button>
       </div>
       <div id="summary-result"></div>
     </div>
@@ -128,16 +214,24 @@
   <!-- REVIEW TAB -->
   <div id="panel-review" class="panel hidden">
     <div class="glass rounded-xl p-6">
-      <h2 class="text-xl font-semibold mb-4">Generate Literature Review</h2>
+      <h2 class="text-xl font-semibold mb-1">Generate Literature Review</h2>
+      <p class="text-xs text-slate-500 mb-5">Synthesize themes, gaps, and future directions across all indexed papers</p>
       <div class="grid gap-3 mb-4">
-        <input id="rev-topic" type="text" placeholder="Topic e.g. transformer architectures"
-          class="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3">
-        <button onclick="generateReview()" class="btn-primary px-6 py-3 rounded-lg font-medium">Generate Review</button>
+        <div>
+          <label class="text-xs font-medium text-slate-400 mb-1.5 block">Topic</label>
+          <input id="rev-topic" type="text" placeholder="e.g. transformer architectures, BERT pretraining, RAG systems"
+            class="w-full bg-slate-800/60 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 transition"
+            onkeydown="if(event.key==='Enter')generateReview()">
+        </div>
+        <button onclick="generateReview()" class="btn-primary px-6 py-3 rounded-lg font-medium text-white">Generate Review</button>
       </div>
       <div id="review-result"></div>
     </div>
   </div>
 </div>
+
+<!-- Toast container -->
+<div id="toast-container" class="fixed bottom-6 right-6 space-y-2 z-50"></div>
 
 <script>
 const API = window.location.origin + '/api/v1';
@@ -160,6 +254,27 @@ function renderHistory() {
   el.innerHTML = h.map(q => `<div class="history-item text-xs py-1 px-2 rounded hover:bg-slate-800 cursor-pointer text-slate-400 hover:text-slate-200 truncate" onclick="useHistory(${JSON.stringify(q)})" title="${escapeHtml(q)}">${escapeHtml(q.slice(0,45))}${q.length>45?'…':''}</div>`).join('');
 }
 function useHistory(q) { document.getElementById('chat-input').value = q; document.getElementById('chat-input').focus(); }
+function useExample(q) { document.getElementById('chat-input').value = q; sendQuery(); }
+
+// ── Toast notifications ──────────────────────────────────────────────────────
+function toast(message, type = 'info') {
+  const colors = {
+    success: 'bg-green-900/80 border-green-700 text-green-200',
+    error:   'bg-red-900/80 border-red-700 text-red-200',
+    info:    'bg-slate-800/90 border-slate-700 text-slate-200',
+  };
+  const icons = { success: '✓', error: '✗', info: 'ℹ' };
+  const el = document.createElement('div');
+  el.className = `toast glass border ${colors[type]} px-4 py-3 rounded-lg shadow-lg max-w-sm flex items-center gap-2`;
+  el.innerHTML = `<span class="text-lg">${icons[type]}</span><span class="text-sm">${escapeHtml(message)}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(20px)'; }, 3000);
+  setTimeout(() => el.remove(), 3400);
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard', 'success'));
+}
 
 // ── Health ────────────────────────────────────────────────────────────────────
 async function checkHealth() {
@@ -180,10 +295,12 @@ async function checkHealth() {
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 function switchTab(name) {
   document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
-  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('bg-indigo-600','text-white'); b.classList.add('text-slate-400'); });
-  document.getElementById(`panel-${name}`).classList.remove('hidden');
+  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active','text-white'); b.classList.add('text-slate-400'); });
+  const panel = document.getElementById(`panel-${name}`);
+  panel.classList.remove('hidden');
+  panel.classList.add('fade-in');
   const btn = document.getElementById(`tab-${name}`);
-  btn.classList.add('bg-indigo-600','text-white'); btn.classList.remove('text-slate-400');
+  btn.classList.add('active','text-white'); btn.classList.remove('text-slate-400');
   if (name === 'papers' || name === 'summarize') loadPapers();
 }
 
@@ -197,17 +314,25 @@ function formatAnswer(t) {
 
 function addMessage(role, content, meta) {
   const messages = document.getElementById('chat-messages');
-  if (messages.querySelector('.text-center')) messages.innerHTML = '';
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
   const div = document.createElement('div');
-  div.className = role === 'user' ? 'flex justify-end' : 'flex justify-start';
+  div.className = (role === 'user' ? 'flex justify-end' : 'flex justify-start') + ' fade-in';
+  const messageId = 'msg-' + Date.now() + Math.random().toString(36).slice(2, 6);
+  div.dataset.id = messageId;
   div.innerHTML = role === 'user'
-    ? `<div class="bg-indigo-600 px-4 py-3 rounded-2xl rounded-br-sm max-w-[80%]">${escapeHtml(content)}</div>`
-    : `<div class="glass px-4 py-3 rounded-2xl rounded-bl-sm max-w-[85%]">
+    ? `<div class="bg-gradient-to-br from-indigo-600 to-purple-600 px-4 py-3 rounded-2xl rounded-br-sm max-w-[80%] shadow-lg">${escapeHtml(content)}</div>`
+    : `<div class="msg-bubble glass px-4 py-3 rounded-2xl rounded-bl-sm max-w-[85%] relative group">
         <div class="prose prose-invert prose-sm max-w-none">${formatAnswer(content)}</div>
-        ${meta ? `<div class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-700">
-          ⚡ ${meta.processing_time?.toFixed(1)}s · 📚 ${meta.retrieved_chunks} chunks · 🎯 ${((meta.confidence||0)*100).toFixed(0)}% confidence
-          ${meta.citations?.length ? `<div class="mt-2 flex flex-wrap gap-1">${meta.citations.map(c=>`<span class="citation">${escapeHtml(c.paper_title?.slice(0,40)||'paper')}</span>`).join('')}</div>` : ''}
+        ${meta ? `<div class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-700/50 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span>⚡ ${meta.processing_time?.toFixed(1)}s</span>
+          <span>📚 ${meta.retrieved_chunks} chunks</span>
+          <span>🎯 ${((meta.confidence||0)*100).toFixed(0)}% confidence</span>
+          ${meta.citations?.length ? `<div class="basis-full mt-1 flex flex-wrap gap-1">${meta.citations.map(c=>`<span class="citation" title="${escapeHtml(c.paper_title||'')}">${escapeHtml((c.paper_title||'paper').slice(0,40))}</span>`).join('')}</div>` : ''}
         </div>` : ''}
+        <button class="copy-btn absolute top-2 right-2 text-slate-500 hover:text-slate-300 transition" onclick="copyToClipboard(${JSON.stringify(content).replace(/"/g,'&quot;')})" title="Copy answer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        </button>
       </div>`;
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
@@ -250,20 +375,36 @@ async function loadPapers() {
     const papers = await r.json();
     const list = document.getElementById('papers-list');
     const select = document.getElementById('sum-paper');
-    if (!papers.length) {
-      list.innerHTML = '<div class="text-center py-8 text-slate-500">No papers indexed yet. Upload one to get started.</div>';
+    if (papers.length === 0) {
+      list.innerHTML = `<div class="text-center py-16">
+        <div class="text-5xl mb-3 opacity-50">📚</div>
+        <p class="text-slate-400 mb-4">No papers indexed yet</p>
+        <button onclick="switchTab('upload')" class="btn-primary text-white px-5 py-2 rounded-lg text-sm font-medium">Upload your first paper</button>
+      </div>`;
       select.innerHTML = '<option>Upload a paper first</option>';
       return;
     }
     list.innerHTML = papers.map(p => `
-      <div class="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-        <div class="flex justify-between items-start">
+      <div class="paper-card glass rounded-xl p-5 fade-in">
+        <div class="flex justify-between items-start gap-3">
           <div class="flex-1 min-w-0">
-            <div class="font-medium truncate">${escapeHtml(p.metadata?.title || 'Untitled')}</div>
-            <div class="text-xs text-slate-500 mt-1 font-mono">${p.paper_id.slice(0,8)}…</div>
-            <div class="text-sm text-slate-400 mt-2">📑 ${p.num_chunks} chunks · 📂 ${(p.sections||[]).slice(0,4).join(', ')}</div>
+            <div class="font-medium text-slate-100 mb-1 leading-snug">${escapeHtml(p.metadata?.title || 'Untitled')}</div>
+            <div class="text-xs text-slate-500 font-mono mb-3">${p.paper_id.slice(0,8)}…</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="text-xs px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">📑 ${p.num_chunks} chunks</span>
+              ${(p.sections||[]).slice(0,3).map(s => `<span class="text-xs px-2 py-0.5 rounded-md bg-slate-700/50 text-slate-300 border border-slate-700">${escapeHtml(s)}</span>`).join('')}
+              ${(p.sections||[]).length > 3 ? `<span class="text-xs text-slate-500">+${p.sections.length - 3}</span>` : ''}
+            </div>
+            ${p.metadata?.authors?.length ? `<div class="text-xs text-slate-500 mt-2">👥 ${escapeHtml(p.metadata.authors.slice(0,3).join(', '))}</div>` : ''}
           </div>
-          <button onclick="deletePaper('${p.paper_id}')" class="text-red-400 hover:text-red-300 ml-3 flex-shrink-0" title="Delete">🗑️</button>
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <button onclick="askAbout('${p.paper_id}', ${JSON.stringify(p.metadata?.title||'').replace(/"/g,'&quot;')})" class="text-slate-400 hover:text-indigo-400 transition p-1.5 rounded hover:bg-slate-700/50" title="Ask about this paper">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            </button>
+            <button onclick="deletePaper('${p.paper_id}')" class="text-slate-400 hover:text-red-400 transition p-1.5 rounded hover:bg-slate-700/50" title="Delete paper">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </div>
         </div>
       </div>`).join('');
     select.innerHTML = papers.map(p =>
@@ -277,7 +418,18 @@ async function loadPapers() {
 async function deletePaper(id) {
   if (!confirm('Delete this paper from Qdrant Cloud?')) return;
   const r = await fetch(`${API}/papers/${id}`, {method:'DELETE'});
-  if (r.ok || r.status === 204) loadPapers();
+  if (r.ok || r.status === 204) {
+    toast('Paper deleted', 'success');
+    loadPapers();
+  } else {
+    toast('Delete failed', 'error');
+  }
+}
+
+function askAbout(paperId, title) {
+  switchTab('chat');
+  document.getElementById('chat-input').value = `Tell me about "${title}"`;
+  document.getElementById('chat-input').focus();
 }
 
 // ── Upload with progress steps ────────────────────────────────────────────────
@@ -337,16 +489,26 @@ async function uploadFile(file) {
     setTimeout(() => progress.classList.add('hidden'), 500);
 
     if (data.status === 'success') {
-      result.innerHTML = `<div class="bg-green-900/30 border border-green-700 p-4 rounded-lg">
-        <div class="text-green-400 font-medium mb-2">✓ Successfully indexed</div>
-        <div class="text-sm text-slate-300 space-y-1">
-          <div><strong>Title:</strong> ${escapeHtml(data.metadata?.title || 'N/A')}</div>
-          <div><strong>Pages:</strong> ${data.metadata?.num_pages || '?'} · <strong>Chunks:</strong> ${data.num_chunks} · <strong>Time:</strong> ${data.processing_time?.toFixed(1)}s</div>
-          ${data.metadata?.abstract ? `<div class="text-slate-400 text-xs mt-2 line-clamp-3">${escapeHtml(data.metadata.abstract.slice(0,200))}…</div>` : ''}
+      toast('Paper indexed successfully', 'success');
+      result.innerHTML = `<div class="bg-green-900/30 border border-green-700/50 p-5 rounded-xl fade-in">
+        <div class="text-green-400 font-medium mb-3 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          Successfully indexed
         </div>
+        <div class="text-sm text-slate-300 space-y-1.5">
+          <div><span class="text-slate-500">Title:</span> ${escapeHtml(data.metadata?.title || 'N/A')}</div>
+          <div class="flex flex-wrap gap-3">
+            <span><span class="text-slate-500">Pages:</span> ${data.metadata?.num_pages || '?'}</span>
+            <span><span class="text-slate-500">Chunks:</span> ${data.num_chunks}</span>
+            <span><span class="text-slate-500">Time:</span> ${data.processing_time?.toFixed(1)}s</span>
+          </div>
+          ${data.metadata?.abstract ? `<div class="text-slate-400 text-xs mt-3 pt-3 border-t border-green-700/30">${escapeHtml(data.metadata.abstract.slice(0,250))}…</div>` : ''}
+        </div>
+        <button onclick="switchTab('chat')" class="mt-4 text-sm text-indigo-400 hover:text-indigo-300 transition flex items-center gap-1">Ask questions about it →</button>
       </div>`;
     } else {
-      result.innerHTML = `<div class="bg-red-900/30 border border-red-700 p-4 rounded-lg text-red-300">✗ ${escapeHtml(data.message||data.detail?.error||'Upload failed')}</div>`;
+      toast(data.message || 'Upload failed', 'error');
+      result.innerHTML = `<div class="bg-red-900/30 border border-red-700/50 p-4 rounded-xl text-red-300">✗ ${escapeHtml(data.message||data.detail?.error||'Upload failed')}</div>`;
     }
   } catch(e) {
     clearTimeout(timer1); clearTimeout(timer2); clearTimeout(timer3);
@@ -412,11 +574,20 @@ async function generateReview() {
   }
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
+// ── Init & keyboard shortcuts ─────────────────────────────────────────────────
 checkHealth();
 setInterval(checkHealth, 30000);
 loadPapers();
 renderHistory();
+
+document.addEventListener('keydown', e => {
+  // "/" to focus chat input (when not already typing)
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+    switchTab('chat');
+    document.getElementById('chat-input').focus();
+  }
+});
 </script>
 
 </body>

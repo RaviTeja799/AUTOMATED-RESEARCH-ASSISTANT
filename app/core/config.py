@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     # Retrieval
     default_top_k: int = Field(default=5, alias="DEFAULT_TOP_K")
     hybrid_search_weight: float = Field(default=0.5, alias="HYBRID_SEARCH_WEIGHT")
-    min_similarity_score: float = Field(default=0.3, alias="MIN_SIMILARITY_SCORE")
+    min_similarity_score: float = Field(default=0.1, alias="MIN_SIMILARITY_SCORE")
 
     # Agent
     agent_max_iterations: int = Field(default=5, alias="AGENT_MAX_ITERATIONS")

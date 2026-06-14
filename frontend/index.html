@@ -277,18 +277,36 @@ function copyToClipboard(text) {
 }
 
 // ── Health ────────────────────────────────────────────────────────────────────
+let _healthRetries = 0;
 async function checkHealth() {
   try {
-    const r = await fetch(`${API}/health`);
+    // First check liveness (instant)
+    const live = await fetch(`${API}/health/live`);
+    if (!live.ok) throw new Error('offline');
+
+    // Then try full health (requires services to be ready)
+    const r = await fetch(`${API}/health`, {signal: AbortSignal.timeout(5000)});
     const h = await r.json();
+    _healthRetries = 0;
     const ok = h.status === 'healthy';
+    const degraded = h.status === 'degraded';
+    const dot = ok ? 'bg-green-400' : (degraded ? 'bg-yellow-400' : 'bg-orange-400');
+    const label = ok ? 'Healthy' : (degraded ? 'Starting up…' : 'Warming up…');
+    const color = ok ? 'green' : (degraded ? 'yellow' : 'orange');
     document.getElementById('status-pill').innerHTML =
-      `<span class="inline-block w-2 h-2 rounded-full ${ok?'bg-green-400':'bg-yellow-400'} mr-2"></span>` +
-      `<span class="text-${ok?'green':'yellow'}-400">${ok?'Healthy':'Degraded'}</span>` +
-      ` · Qdrant ${h.qdrant_connected?'✓':'✗'} · Groq ${h.groq_available?'✓':'✗'}`;
+      `<span class="inline-block w-2 h-2 rounded-full ${dot} mr-2 ${ok?'':'pulse-dot'}"></span>` +
+      `<span class="text-${color}-400">${label}</span>` +
+      ` · Qdrant ${h.qdrant_connected?'✓':'…'} · Groq ${h.groq_available?'✓':'…'}`;
+
+    // If not fully healthy yet, retry faster
+    if (!ok) setTimeout(checkHealth, 5000);
   } catch {
+    _healthRetries++;
     document.getElementById('status-pill').innerHTML =
-      `<span class="inline-block w-2 h-2 rounded-full bg-red-400 mr-2"></span><span class="text-red-400">Server offline</span>`;
+      `<span class="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-2 pulse-dot"></span>` +
+      `<span class="text-yellow-400">Starting up…</span>`;
+    // Retry quickly during startup
+    if (_healthRetries < 10) setTimeout(checkHealth, 3000);
   }
 }
 

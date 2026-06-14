@@ -286,18 +286,18 @@ async function checkHealth() {
     _healthRetries = 0;
     const ok = h.status === 'healthy';
     const dot = ok ? 'bg-green-400' : 'bg-yellow-400 pulse-dot';
-    const label = ok ? 'Healthy' : 'Starting up\u2026';
+    const label = ok ? 'Healthy' : 'Starting up…';
     const color = ok ? 'green' : 'yellow';
     pill.innerHTML =
       `<span class="inline-block w-2 h-2 rounded-full ${dot} mr-2"></span>` +
       `<span class="text-${color}-400">${label}</span>` +
-      ` \u00B7 Qdrant ${h.qdrant_connected?'\u2713':'\u2026'} \u00B7 Groq ${h.groq_available?'\u2713':'\u2026'}`;
+      ` · Qdrant ${h.qdrant_connected ? '✓' : '…'} · Groq ${h.groq_available ? '✓' : '…'}`;
     if (!ok) setTimeout(checkHealth, 5000);
   } catch(e) {
     _healthRetries++;
     pill.innerHTML =
       `<span class="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-2 pulse-dot"></span>` +
-      `<span class="text-yellow-400">Starting up\u2026</span>`;
+      `<span class="text-yellow-400">Starting up…</span>`;
     if (_healthRetries < 20) setTimeout(checkHealth, 4000);
   }
 }

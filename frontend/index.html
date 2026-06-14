@@ -404,9 +404,6 @@ async function loadPapers() {
             <button onclick="deletePaper('${p.paper_id}')" class="text-slate-400 hover:text-red-400 transition p-1.5 rounded hover:bg-slate-700/50" title="Delete paper">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             </button>
-          </div>
-        </div>
-      </div>`).join('');
     select.innerHTML = papers.map(p =>
       `<option value="${p.paper_id}">${escapeHtml((p.metadata?.title||p.paper_id).slice(0,80))}</option>`
     ).join('');
@@ -416,11 +413,17 @@ async function loadPapers() {
 }
 
 async function deletePaper(id) {
-  if (!confirm('Delete this paper from Qdrant Cloud?')) return;
-  const r = await fetch(`${API}/papers/${id}`, {method:'DELETE'});
+  const pin = prompt('Enter admin PIN to delete this paper:\n(Leave blank if no PIN is set)') ?? '';
+  if (pin === null) return; // cancelled
+  const r = await fetch(`${API}/papers/${id}`, {
+    method: 'DELETE',
+    headers: pin ? {'X-Admin-Pin': pin} : {}
+  });
   if (r.ok || r.status === 204) {
     toast('Paper deleted', 'success');
     loadPapers();
+  } else if (r.status === 401) {
+    toast('Invalid PIN', 'error');
   } else {
     toast('Delete failed', 'error');
   }

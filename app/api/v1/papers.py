@@ -3,7 +3,7 @@ Paper management endpoints.
 """
 import hashlib
 from typing import List
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Query
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Query, Header
 from fastapi.responses import JSONResponse
 
 from app.models.schemas import (
@@ -26,6 +26,15 @@ router = APIRouter(prefix="/papers", tags=["Papers"])
 
 # In-memory deduplication cache: {sha256_hash: paper_id}
 _UPLOAD_HASHES: dict = {}
+
+
+def _verify_admin_pin(pin: str) -> bool:
+    """Check PIN against ADMIN_PIN env var. Returns True if no PIN configured (dev mode)."""
+    admin_pin = getattr(settings, 'admin_pin', '') or ''
+    if not admin_pin:
+        return True  # No PIN configured — allow (local dev)
+    # Compare hash to avoid timing attacks
+    return hashlib.sha256(pin.encode()).hexdigest() == hashlib.sha256(admin_pin.encode()).hexdigest()
 
 
 @router.post("/upload", response_model=PaperUploadResponse, status_code=status.HTTP_201_CREATED)
@@ -205,20 +214,17 @@ async def delete_paper(
     paper_id: str,
     document_service: DocumentService = Depends(get_document_service),
     request_id: str = Depends(get_request_id),
+    x_admin_pin: str = Header(default="", alias="X-Admin-Pin"),
 ) -> None:
     """
-    Delete a paper and all its associated data.
-    
-    **Args:**
-    - **paper_id**: Unique paper identifier
-    
-    **Returns:**
-    - 204 No Content on success
-    
-    **Raises:**
-    - 404: Paper not found
-    - 500: Server error
+    Delete a paper. Requires X-Admin-Pin header if ADMIN_PIN is configured.
     """
+    # PIN check
+    if not _verify_admin_pin(x_admin_pin):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "Unauthorized", "detail": "Invalid admin PIN"}
+        )
     try:
         success = await document_service.delete_paper(paper_id)
 

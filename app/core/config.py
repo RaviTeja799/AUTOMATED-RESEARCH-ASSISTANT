@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     processed_dir: Path = Field(default=Path("data/processed"), alias="PROCESSED_DIR")
     log_dir: Path = Field(default=Path("logs"), alias="LOG_DIR")
 
+    # Admin protection
+    admin_pin: str = Field(default="", alias="ADMIN_PIN")
+
     # CORS
     cors_origins: List[str] = Field(
         default=["http://localhost:3000", "http://localhost:8501"],

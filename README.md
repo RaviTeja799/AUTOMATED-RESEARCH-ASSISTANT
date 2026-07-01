@@ -1,4 +1,4 @@
-﻿---
+---
 title: Automated Research Assistant
 emoji: 🔬
 colorFrom: indigo
@@ -10,55 +10,55 @@ short_description: RAG-powered Q&A on academic papers using Groq + Qdrant
 ---
 <div align="center">
 
-# ðŸ”¬ Automated Research Assistant
+# 🔬 Automated Research Assistant
 
 **RAG-powered Q&A on academic papers**
 
-[![Live Demo](https://img.shields.io/badge/ðŸ¤—%20HuggingFace-Live%20Demo-orange)](https://vamsi-op-automated-research-assistant.hf.space)
+[![Live Demo](https://img.shields.io/badge/🤗%20HuggingFace-Live%20Demo-orange)](https://vamsi-op-automated-research-assistant.hf.space)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-black)](https://github.com/vamsi-op/AUTOMATED-RESEARCH-ASSISTANT)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Upload academic PDFs â†’ Ask questions â†’ Get cited answers
+Upload academic PDFs → Ask questions → Get cited answers
 
 </div>
 
 ---
 
-## ðŸš€ Live Demo
+## 🚀 Live Demo
 
 **[https://vamsi-op-automated-research-assistant.hf.space](https://vamsi-op-automated-research-assistant.hf.space)**
 
 ---
 
-## âœ¨ Features
+## ✨ Features
 
 | Feature | Description |
 |---------|-------------|
-| ðŸ“„ **PDF Upload** | Drag-and-drop with duplicate detection |
-| ðŸ’¬ **RAG Q&A** | Answers with citations and confidence scores |
-| ðŸ“ **Summarization** | Brief, comprehensive, or technical summaries |
-| ðŸ“Š **Literature Review** | Themes, gaps, and future directions |
-| ðŸ¤– **Agent** | LangChain ReAct with intent routing |
-| ðŸ” **Semantic Search** | 384-dim vector search via Qdrant Cloud |
-| ðŸ›¡ï¸ **Hallucination Prevention** | Citation enforcement + grounding rules |
+| 📄 **PDF Upload** | Drag-and-drop with duplicate detection |
+| 💬 **RAG Q&A** | Answers with citations and confidence scores |
+| 📝 **Summarization** | Brief, comprehensive, or technical summaries |
+| 📊 **Literature Review** | Themes, gaps, and future directions |
+| 🤖 **Agent** | LangChain ReAct with intent routing |
+| 🔍 **Semantic Search** | 384-dim vector search via Qdrant Cloud |
+| 🛡️ **Hallucination Prevention** | Citation enforcement + grounding rules |
 
 ---
 
-## ðŸ—ï¸ Architecture
+## 🏗️ Architecture
 
 ```
 Browser / API Client
-        â”‚
-        â–¼
+        │
+        ▼
    FastAPI (uvicorn)
-        â”‚
-   â”Œâ”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-   â”‚                               â”‚
-   â–¼                               â–¼
+        │
+   ┌────┴──────────────────────────┐
+   │                               │
+   ▼                               ▼
 Groq API                    Qdrant Cloud
 (llama-3.1-8b-instant)    (vector store, 384-dim)
-                                   â”‚
-                                   â–¼
+                                   │
+                                   ▼
                          sentence-transformers
                          (all-MiniLM-L6-v2, local)
 ```
@@ -72,12 +72,12 @@ Groq API                    Qdrant Cloud
 | Vector Store | Qdrant Cloud |
 | Embeddings | sentence-transformers `all-MiniLM-L6-v2` (384-dim) |
 | Agent | LangChain ReAct + 5 tools |
-| PDF Processing | PyMuPDF â†’ pdfplumber â†’ pypdf (fallback chain) |
+| PDF Processing | PyMuPDF → pdfplumber → pypdf (fallback chain) |
 | Frontend | Vanilla JS + Tailwind CSS |
 
 ---
 
-## ðŸš¦ Quick Start
+## 🚦 Quick Start
 
 ### Prerequisites
 - Python 3.11+
@@ -108,22 +108,22 @@ docker-compose up
 
 ---
 
-## âš™ï¸ Environment Variables
+## ⚙️ Environment Variables
 
 Copy `.env.example` to `.env` and fill in:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GROQ_API_KEY` | âœ… | Get free at [console.groq.com](https://console.groq.com) |
-| `QDRANT_URL` | âœ… | Your Qdrant Cloud cluster URL |
-| `QDRANT_API_KEY` | âœ… | Your Qdrant Cloud API key |
+| `GROQ_API_KEY` | ✅ | Get free at [console.groq.com](https://console.groq.com) |
+| `QDRANT_URL` | ✅ | Your Qdrant Cloud cluster URL |
+| `QDRANT_API_KEY` | ✅ | Your Qdrant Cloud API key |
 | `GROQ_MODEL` | optional | Default: `llama-3.1-8b-instant` |
 | `EMBEDDING_MODEL` | optional | Default: `sentence-transformers/all-MiniLM-L6-v2` |
 | `CHUNK_SIZE` | optional | Default: `512` |
 
 ---
 
-## ðŸ“¡ API Endpoints
+## 📡 API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -141,26 +141,26 @@ Interactive docs at `/docs`.
 
 ---
 
-## ðŸ“ Project Structure
+## 📁 Project Structure
 
 ```
 app/
-â”œâ”€â”€ api/v1/          # FastAPI routers
-â”œâ”€â”€ core/            # Config, exceptions
-â”œâ”€â”€ services/        # Business logic
-â”‚   â”œâ”€â”€ document_service.py     # PDF ingestion pipeline
-â”‚   â”œâ”€â”€ query_service.py        # RAG + TTL cache
-â”‚   â”œâ”€â”€ embedding_service.py    # sentence-transformers (async)
-â”‚   â”œâ”€â”€ llm_service.py          # Groq client
-â”‚   â”œâ”€â”€ summarization_service.py
-â”‚   â”œâ”€â”€ literature_service.py
-â”‚   â””â”€â”€ agent_service.py
-â”œâ”€â”€ agents/          # LangChain ReAct agent + tools
-â”œâ”€â”€ retrieval/       # Qdrant client, hybrid retriever
-â”œâ”€â”€ processing/      # PDF extraction, chunking, preprocessing
-â”œâ”€â”€ prompts/         # RAG prompt templates
-â”œâ”€â”€ models/          # Pydantic schemas
-â””â”€â”€ utils/           # Logging
+├── api/v1/          # FastAPI routers
+├── core/            # Config, exceptions
+├── services/        # Business logic
+│   ├── document_service.py     # PDF ingestion pipeline
+│   ├── query_service.py        # RAG + TTL cache
+│   ├── embedding_service.py    # sentence-transformers (async)
+│   ├── llm_service.py          # Groq client
+│   ├── summarization_service.py
+│   ├── literature_service.py
+│   └── agent_service.py
+├── agents/          # LangChain ReAct agent + tools
+├── retrieval/       # Qdrant client, hybrid retriever
+├── processing/      # PDF extraction, chunking, preprocessing
+├── prompts/         # RAG prompt templates
+├── models/          # Pydantic schemas
+└── utils/           # Logging
 
 frontend/            # Single-page web UI
 scripts/             # CLI utilities
@@ -168,24 +168,24 @@ scripts/             # CLI utilities
 
 ---
 
-## ðŸ”„ How RAG Works
+## 🔄 How RAG Works
 
 ```
 Question
-  â†’ Embed (384-dim vector)
-  â†’ Search Qdrant (cosine similarity, top-5)
-  â†’ Build citation-aware prompt
-  â†’ Generate answer (Groq, temp=0.3)
-  â†’ Extract citations
-  â†’ Assess confidence
-  â†’ Return answer + citations + confidence
+  → Embed (384-dim vector)
+  → Search Qdrant (cosine similarity, top-5)
+  → Build citation-aware prompt
+  → Generate answer (Groq, temp=0.3)
+  → Extract citations
+  → Assess confidence
+  → Return answer + citations + confidence
 ```
 
 **Hallucination prevention:** Every claim must be cited. The system prompt forbids external knowledge and enforces `[Title, Authors, Year]` citation format.
 
 ---
 
-## ðŸ› ï¸ Scripts
+## 🛠️ Scripts
 
 ```bash
 # Run a quick demo against a running server
@@ -200,13 +200,13 @@ python scripts/benchmark.py
 
 ---
 
-## ðŸ“„ License
+## 📄 License
 
-MIT â€” see [LICENSE](LICENSE)
+MIT — see [LICENSE](LICENSE)
 
 ---
 
-## ðŸ‘¤ Author
+## 👤 Author
 
 <table>
   <tr>
@@ -215,14 +215,14 @@ MIT â€” see [LICENSE](LICENSE)
         <img src="https://github.com/vamsi-op.png" width="80px" alt="Vamsi Puttepu"/><br/>
         <sub><b>Vamsi Puttepu</b></sub>
       </a><br/>
-      <a href="https://github.com/vamsi-op/AUTOMATED-RESEARCH-ASSISTANT/commits?author=vamsi-op">ðŸ’»</a>
+      <a href="https://github.com/vamsi-op/AUTOMATED-RESEARCH-ASSISTANT/commits?author=vamsi-op">💻</a>
     </td>
   </tr>
 </table>
 
 ---
 
-## ðŸ¤ Contributing
+## 🤝 Contributing
 
 Contributions, issues and feature requests are welcome.
 
@@ -235,5 +235,5 @@ Contributions, issues and feature requests are welcome.
 ---
 
 <div align="center">
-  <sub>Built with â¤ï¸ using FastAPI Â· Groq Â· Qdrant Â· sentence-transformers</sub>
+  <sub>Built with ❤️ using FastAPI · Groq · Qdrant · sentence-transformers</sub>
 </div>

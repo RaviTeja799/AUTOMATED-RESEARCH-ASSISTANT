@@ -1,15 +1,3 @@
----
-title: Automated Research Assistant
-emoji: 🔬
-colorFrom: indigo
-colorTo: purple
-sdk: docker
-pinned: false
-license: mit
-short_description: RAG-powered Q&A on academic papers using Groq + Qdrant
----
-<div align="center">
-
 # 🔬 Automated Research Assistant
 
 **RAG-powered Q&A on academic papers**
